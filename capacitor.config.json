@@ -1,0 +1,10 @@
+{
+      "appId": "com.dresapps.carivan",
+        "appName": "CariVan",
+          "webDir": "dist",
+            "server": {
+                    "androidScheme": "https"
+            }
+}
+            }
+}

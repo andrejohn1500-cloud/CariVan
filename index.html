@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+      <title>CariVan — St. Vincent</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { background: #0a1628; overflow: hidden; width: 100vw; height: 100vh; }
+                    #renderCanvas { width: 100%; height: 100%; touch-action: none; display: block; }
+                        #loading {
+                                  position: absolute; inset: 0; background: #0a1628;
+                                        display: flex; flex-direction: column; align-items: center;
+                                              justify-content: center; color: #fff;
+                                                    font-family: system-ui, sans-serif; z-index: 100;
+                        }
+                            #loading h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: #4ade80; }
+                                #loading p { font-size: 1rem; color: #94a3b8; margin-bottom: 2rem; }
+                                    #progress-bar { width: 240px; height: 4px; background: #1e3a5f; border-radius: 2px; overflow: hidden; }
+                                        #progress-fill { height: 100%; background: #4ade80; border-radius: 2px; width: 0%; transition: width 0.3s ease; }
+                                            #status-text { margin-top: 1rem; font-size: 0.85rem; color: #64748b; }
+                                              </style>
+                                              </head>
+                                              <body>
+                                                <canvas id="renderCanvas"></canvas>
+                                                  <div id="loading">
+                                                      <h1>CariVan 🇻🇨</h1>
+                                                          <p>St. Vincent &amp; the Grenadines</p>
+                                                              <div id="progress-bar"><div id="progress-fill"></div></div>
+                                                                  <div id="status-text">Loading island...</div>
+                                                                    </div>
+                                                                      <script type="module" src="/src/main.js"></script>
+                                                                      </body>
+                                                                      </html>
+                        }
