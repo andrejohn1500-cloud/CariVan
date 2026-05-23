@@ -1,29 +1,23 @@
 {
-      "name": "cari-van",
-        "version": "0.1.0",
-          "description": "Caribbean open-world game — St. Vincent first",
-            "scripts": {
-                    "dev": "vite",
-                        "build": "vite build",
-                            "preview": "vite preview",
-                                "cap:sync": "npx cap sync android",
-                                    "cap:open": "npx cap open android"
-            },
-              "dependencies": {
-                    "@babylonjs/core": "^6.48.0",
-                        "@babylonjs/materials": "^6.48.0",
-                            "@babylonjs/loaders": "^6.48.0",
-                                "@babylonjs/gui": "^6.48.0",
-                                    "@capacitor/android": "^5.7.0",
-                                        "@capacitor/core": "^5.7.0",
-                                            "geotiff": "^2.1.3"
-              },
-                "devDependencies": {
-                        "@capacitor/cli": "^5.7.0",
-                            "vite": "^5.2.0"
-                }
-}
-                }
-              }
-            }
+  "name": "cari-van",
+  "version": "0.1.0",
+  "description": "Caribbean open-world game",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^6.48.0",
+    "@babylonjs/materials": "^6.48.0",
+    "@babylonjs/loaders": "^6.48.0",
+    "@babylonjs/gui": "^6.48.0",
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/core": "^5.7.0",
+    "geotiff": "^2.1.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^5.7.0",
+    "vite": "^5.2.0"
+  }
 }
