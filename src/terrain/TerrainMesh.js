@@ -1,4 +1,4 @@
-import { MeshBuilder, StandardMaterial, Color3, DynamicTexture } from '@babylonjs/core';
+import { MeshBuilder, StandardMaterial, Color3, DynamicTexture, VertexBuffer } from '@babylonjs/core';
 
 const MAX_HEIGHT = 1234;
 const SIZE = 256;
@@ -33,20 +33,29 @@ function generateHeightmap() {
 }
 
 function buildGroundMesh(heightData, scene) {
-  const ground = MeshBuilder.CreateGroundFromHeightMap(
-    'svg_terrain', null,
-    {
-      width: 29000,
-      height: 45000,
-      subdivisions: 200,
-      minHeight: 0,
-      maxHeight: MAX_HEIGHT,
-      bufferWidth: heightData.width,
-      bufferHeight: heightData.height,
-      heightBuffer: heightData.buffer
-    },
-    scene
-  );
+  const SUBS = 100;
+  const ground = MeshBuilder.CreateGround('svg_terrain', {
+    width: 29000,
+    height: 45000,
+    subdivisions: SUBS,
+    updatable: true
+  }, scene);
+  try {
+    const positions = ground.getVerticesData(VertexBuffer.PositionKind);
+    const vertsPerRow = SUBS + 1;
+    for (let i = 0; i < vertsPerRow; i++) {
+      for (let j = 0; j < vertsPerRow; j++) {
+        const bufRow = Math.floor(i / SUBS * (SIZE - 1));
+        const bufCol = Math.floor(j / SUBS * (SIZE - 1));
+        const h = heightData.buffer[bufRow * SIZE + bufCol] * MAX_HEIGHT;
+        positions[(i * vertsPerRow + j) * 3 + 1] = h;
+      }
+    }
+    ground.setVerticesData(VertexBuffer.PositionKind, positions);
+    ground.refreshBoundingInfo();
+  } catch (e) {
+    console.warn('Height apply failed, using flat ground:', e);
+  }
   ground.receiveShadows = true;
   return ground;
 }
