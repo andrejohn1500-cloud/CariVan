@@ -15,14 +15,10 @@ import { buildArgyleAirport }           from './world/ArgyleAirport.js';
 let _engine, _scene, _van, _camera, _roads = [];
 let _paused = false;
 
-// ── Use the loading div already in index.html ─────────────────────
 function showLoading(missionType) {
   const el = document.getElementById('loading');
   const p  = document.getElementById('loading-sub');
-  if (el) {
-    el.style.display = 'flex';
-    el.style.opacity = '1';
-  }
+  if (el) { el.style.display = 'flex'; el.style.opacity = '1'; }
   if (p) p.textContent = 'Loading ' + (missionType || '') + '…';
   setProgress(0, 'Starting…');
 }
@@ -42,7 +38,6 @@ function hideLoading() {
   setTimeout(() => { el.style.display = 'none'; }, 600);
 }
 
-// ── Called by SM.startGame() in index.html ────────────────────────
 window._startCariVan = async function(vehicleType, missionType) {
   try {
     showLoading(missionType);
@@ -50,10 +45,8 @@ window._startCariVan = async function(vehicleType, missionType) {
     const canvas = document.getElementById('renderCanvas');
     if (!canvas) throw new Error('Canvas element not found');
 
-    // Dispose previous scene if any
     if (_scene) { _scene.dispose(); _scene = null; _van = null; }
 
-    // Create engine
     if (!_engine) {
       _engine = new Engine(canvas, true, {
         preserveDrawingBuffer: true,
@@ -96,28 +89,32 @@ window._startCariVan = async function(vehicleType, missionType) {
     buildArgyleAirport(_scene, terrain);
 
     setProgress(80, 'Spawning vehicles…');
-    const sx = -1200, sz = -8000;
-    const sy = terrain.getHeightAtCoordinates(sx, sz) + 1.5;
+
+    // Spawn in Mesopotamia Valley — guaranteed highland terrain
+    const sx = 1450, sz = -3600;
+    const sy = terrain.getHeightAtCoordinates(sx, sz) + 2;
     _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
     shadows.addShadowCaster(_van.mesh);
     window.gameVan = _van;
 
-    buildCivic(_scene, new Vector3(-800,
-      terrain.getHeightAtCoordinates(-800,-7500)+0.8, -7500));
-    buildFitHybrid(_scene, new Vector3(-600,
-      terrain.getHeightAtCoordinates(-600,-7200)+0.86, -7200));
+    buildCivic(_scene, new Vector3(
+      1800, terrain.getHeightAtCoordinates(1800, -3200) + 0.8, -3200));
+    buildFitHybrid(_scene, new Vector3(
+      2000, terrain.getHeightAtCoordinates(2000, -3000) + 0.86, -3000));
 
     setProgress(90, 'Camera…');
-    _camera = new ArcRotateCamera('cam', -Math.PI/2, Math.PI/3.5, 28,
-      _van.mesh.position, _scene);
-    _camera.lowerRadiusLimit = 10;
-    _camera.upperRadiusLimit = 80;
+
+    // Camera targets van root (TransformNode), not mesh
+    _camera = new ArcRotateCamera('cam', -Math.PI/2, Math.PI/3.5, 35,
+      _van.root.position, _scene);
+    _camera.lowerRadiusLimit = 15;
+    _camera.upperRadiusLimit = 120;
     _camera.upperBetaLimit   = Math.PI / 2.1;
     _camera.attachControl(canvas, true);
 
     _scene.onBeforeRenderObservable.add(() => {
       if (_van && _camera) {
-        _camera.target = Vector3.Lerp(_camera.target, _van.mesh.position, 0.08);
+        _camera.target = Vector3.Lerp(_camera.target, _van.root.position, 0.08);
       }
     });
 
@@ -143,16 +140,15 @@ window._startCariVan = async function(vehicleType, missionType) {
 
     setProgress(100, 'St. Vincent ready! 🇻🇨');
 
-setTimeout(() => {
-  hideLoading();
-  if (window.SM) window.SM.onGameReady();
-  // Force camera to look at van immediately
-  if (_camera && _van) {
-    _camera.radius = 25;
-    _camera.beta = Math.PI / 3;
-    _camera.target = _van.mesh.position.clone();
-  }
-}, 800);
+    setTimeout(() => {
+      hideLoading();
+      if (window.SM) window.SM.onGameReady();
+      if (_camera && _van) {
+        _camera.radius = 35;
+        _camera.beta   = Math.PI / 3;
+        _camera.target = _van.root.position.clone();
+      }
+    }, 800);
 
   } catch(err) {
     console.error('CariVan failed:', err);
@@ -162,13 +158,13 @@ setTimeout(() => {
   }
 };
 
-window._pauseGame        = () => { _paused = true; };
-window._resumeGame       = () => { _paused = false; };
-window._stopGame         = () => { _paused = true; };
-window._setCamDistance   = (r) => { if (_camera) _camera.radius = r; };
-window._applySettings    = (s) => {};
+window._pauseGame      = () => { _paused = true; };
+window._resumeGame     = () => { _paused = false; };
+window._stopGame       = () => { _paused = true; };
+window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
+window._applySettings  = (s) => {};
 
-// ── Hide boot loading screen → show main menu ─────────────────────
+// Hide boot loading screen → show main menu
 (function() {
   const el = document.getElementById('loading');
   if (el) {
