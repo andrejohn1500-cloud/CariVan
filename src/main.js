@@ -92,10 +92,10 @@ window._startCariVan = async function(vehicleType, missionType) {
 
     // Spawn near Kingstown on the leeward coast — known land coordinates
     // These world coords map to ~13.16N, 61.23W which is Kingstown area
-    const sx = -3200, sz = -6500;
-    const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
-    // If terrain returns 0 (sea) bump up to 10 so van sits on coastal flat
-    const sy = Math.max(rawH, 10) + 2;
+    // Kingstown area — correct world coords with flipped heightmap
+const sx = -5800, sz = -14400;
+const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
+const sy = Math.max(rawH, 15) + 2;
 
     _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
     shadows.addShadowCaster(_van.mesh);
