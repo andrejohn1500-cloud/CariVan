@@ -11,7 +11,7 @@ import { fetchSVGRoads } from './map/OSMFetcher.js';
 import { renderRoads, renderJunctions } from './map/RoadRenderer.js';
 import { VanController } from './vehicles/VanController.js';
 import { buildCivic, buildFitHybrid } from './vehicles/PlayerCars.js';
-
+import { buildArgyleAirport } from './world/ArgyleAirport.js';
 const progressFill = document.getElementById('progress-fill');
 const statusText = document.getElementById('status-text');
 const loadingScreen = document.getElementById('loading');
@@ -57,7 +57,7 @@ async function init() {
   await fetchSVGRoads(function(msg) { setProgress(60, msg); });
   setProgress(68, 'Rendering road network...');
   renderRoads(scene, terrain);
-  renderJunctions(scene, terrain);
+  renderJunctions(scene, terrain);buildArgyleAirport(scene, terrain);
   setProgress(75, 'Roads ready!');
 
   setProgress(80, 'Spawning your van...');
