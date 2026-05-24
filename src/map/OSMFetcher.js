@@ -23,7 +23,7 @@ export const SVG_BOUNDS = {
   worldWidth:  29000,
   worldHeight: 45000
 };
-
+export { SVG_ROADS_BAKED as SVG_ROADS };
 export function geoToWorld(lat, lon) {
   const s = SVG_BOUNDS;
   const x = ((lon - s.west)  / (s.east  - s.west))  * s.worldWidth  - s.worldWidth  / 2;
