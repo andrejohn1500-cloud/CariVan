@@ -143,7 +143,21 @@ window._pauseGame  = () => { _paused = true; };
 window._resumeGame = () => { _paused = false; };
 window._stopGame   = () => { _paused = true; };
 window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
-window._applySettings  = (s) => { /* radio/sfx hooks go here */ };
+window._applySettings  = (s) => { /* radio/sfx hooks go here */ };// Hide loading screen → show main menu
+// Game world loads lazily when Play is pressed
+(function() {
+  const el = document.getElementById('loading');
+  if (el) {
+    el.style.transition = 'opacity 0.5s';
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.style.display = 'none';
+      if (window.SM) window.SM.show('menu');
+    }, 500);
+  } else {
+    if (window.SM) window.SM.show('menu');
+  }
+})();
 
 // Show main menu on load (loading div hides once engine boots)
 // Engine boots lazily when Play is pressed — nothing renders until then
