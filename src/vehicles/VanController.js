@@ -1,354 +1,328 @@
-import { MeshBuilder, StandardMaterial, Color3, Vector3 } from '@babylonjs/core';
+import {
+  MeshBuilder, StandardMaterial, Color3, Vector3,
+  Mesh, TransformNode
+} from '@babylonjs/core';
 
 export class VanController {
   constructor(scene, terrain, startPos) {
-    this.scene = scene;
-    this.terrain = terrain;
-    this.speed = 0;
-    this.maxSpeed = 280;
-    this.acceleration = 60;
-    this.braking = 120;
+    this.scene    = scene;
+    this.terrain  = terrain;
+    this.speed    = 0;          // km/h
+    this.maxSpeed = 80;         // realistic Vincy minibus top speed
+    this.accel    = 12;         // km/h per second
+    this.decel    = 20;         // braking
+    this.friction = 0.88;       // engine-off coast-down
     this.steerAngle = 0;
-    this.maxSteer = 0.045;
-    this.friction = 0.92;
-    this.input = { forward: 0, backward: 0, left: 0, right: 0, honk: false };
-    this.mesh = this._buildVanMesh(startPos || new Vector3(0, 5, 0));
+    this.input = { fwd: 0, back: 0, left: 0, right: 0 };
+    this._hornCtx = null;
+
+    this.root = new TransformNode('vanRoot', scene);
+    this.root.position = startPos || new Vector3(0, 3, 0);
+
+    this._buildUrvan();
+    this.mesh = this.root; // camera target
+
     this._setupKeyboard();
-    this._setupHorn();
   }
 
-  _mat(name, r, g, b, sr, sg, sb, alpha) {
-    const m = new StandardMaterial(name, this.scene);
-    m.diffuseColor = new Color3(r, g, b);
-    m.specularColor = new Color3(sr ?? 0.2, sg ?? 0.2, sb ?? 0.2);
-    if (alpha !== undefined) m.alpha = alpha;
+  // ── Palette ──────────────────────────────────────────────────────────────
+  _mat(name, hex, spec = 0.15) {
+    const m = new StandardMaterial(name + '_mat', this.scene);
+    const r = parseInt(hex.slice(1,3),16)/255;
+    const g = parseInt(hex.slice(3,5),16)/255;
+    const b = parseInt(hex.slice(5,7),16)/255;
+    m.diffuseColor  = new Color3(r, g, b);
+    m.specularColor = new Color3(spec, spec, spec);
     return m;
   }
 
-  _buildVanMesh(position) {
-    const MINT   = [0.69, 0.95, 0.73];
-    const MINT_D = [0.60, 0.88, 0.65];
-    const DARK   = [0.04, 0.04, 0.06];
-    const BLACK  = [0.08, 0.08, 0.08];
-    const GOLD   = [0.72, 0.55, 0.18];
-    const CHROME = [0.75, 0.75, 0.75];
+  // ── Build a proper HiAce Urvan shape ─────────────────────────────────────
+  _buildUrvan() {
+    const sc = this.scene;
+    const root = this.root;
 
-    // ── BODY ──────────────────────────────────────────
-    const body = MeshBuilder.CreateBox('van_body', {
-      width: 2.1, height: 2.3, depth: 5.2
-    }, this.scene);
-    body.position = position.clone();
-    body.position.y += 1.4;
-    body.material = this._mat('bMat', ...MINT, 0.4, 0.5, 0.4);
+    const bodyMat   = this._mat('body',   '#ECECE8', 0.25); // cream white
+    const stripeMat = this._mat('stripe', '#4CAF72', 0.10); // Vincy green
+    const glassMat  = this._mat('glass',  '#1A2B3C', 0.60);
+    const tireMat   = this._mat('tire',   '#1A1A1A', 0.05);
+    const rimMat    = this._mat('rim',    '#C9A84C', 0.80); // gold rims
+    const lightMat  = this._mat('light',  '#FFFFCC', 0.90);
+    const tailMat   = this._mat('tail',   '#CC2200', 0.50);
+    const chromeMat = this._mat('chrome', '#C0C0C0', 0.90);
+    const darkMat   = this._mat('dark',   '#2A2A2A', 0.05);
 
-    // ── HIGH ROOF ──────────────────────────────────────
-    const roof = MeshBuilder.CreateBox('van_roof', {
-      width: 2.0, height: 0.35, depth: 4.6
-    }, this.scene);
-    roof.parent = body;
-    roof.position.y = 1.32;
-    roof.material = this._mat('rMat', ...MINT_D, 0.3, 0.4, 0.3);
+    // ── Main body (long passenger box) ──────────────────────────────────
+    const body = MeshBuilder.CreateBox('body', {width:5.0, height:2.1, depth:2.1}, sc);
+    body.material = bodyMat;
+    body.position = new Vector3(0, 1.2, 0);
+    body.parent = root;
 
-    // ── WINDSHIELD ─────────────────────────────────────
-    const wshield = MeshBuilder.CreateBox('windshield', {
-      width: 1.85, height: 0.85, depth: 0.08
-    }, this.scene);
-    wshield.parent = body;
-    wshield.position.set(0, 0.55, 2.62);
-    wshield.rotation.x = -0.12;
-    const glassMat = this._mat('gMat', ...DARK, 0.6, 0.7, 0.8, 0.85);
-    wshield.material = glassMat;
+    // ── Cab roof (slightly lower front section) ──────────────────────────
+    const cabTop = MeshBuilder.CreateBox('cabTop', {width:1.6, height:0.25, depth:2.0}, sc);
+    cabTop.material = bodyMat;
+    cabTop.position = new Vector3(-1.72, 2.38, 0);
+    cabTop.parent = root;
 
-    // ── FRONT GRILLE (chrome slats) ────────────────────
-    const grille = MeshBuilder.CreateBox('grille', {
-      width: 1.7, height: 0.28, depth: 0.1
-    }, this.scene);
-    grille.parent = body;
-    grille.position.set(0, -0.55, 2.62);
-    grille.material = this._mat('grMat', 0.18, 0.18, 0.18, 0.5, 0.5, 0.5);
+    // ── Green stripe along body sides ────────────────────────────────────
+    const stripeR = MeshBuilder.CreateBox('stripeR', {width:5.02, height:0.45, depth:0.04}, sc);
+    stripeR.material = stripeMat;
+    stripeR.position = new Vector3(0, 1.05, 1.07);
+    stripeR.parent = root;
 
-    // chrome slat lines
-    for (let i = 0; i < 4; i++) {
-      const slat = MeshBuilder.CreateBox('slat_' + i, {
-        width: 1.65, height: 0.03, depth: 0.12
-      }, this.scene);
-      slat.parent = body;
-      slat.position.set(0, -0.43 - i * 0.06, 2.63);
-      slat.material = this._mat('slatM_' + i, ...CHROME, 0.8, 0.8, 0.8);
+    const stripeL = MeshBuilder.CreateBox('stripeL', {width:5.02, height:0.45, depth:0.04}, sc);
+    stripeL.material = stripeMat;
+    stripeL.position = new Vector3(0, 1.05, -1.07);
+    stripeL.parent = root;
+
+    // ── Front windscreen ──────────────────────────────────────────────────
+    const windscreen = MeshBuilder.CreateBox('windscreen', {width:0.06, height:1.0, depth:1.75}, sc);
+    windscreen.material = glassMat;
+    windscreen.position = new Vector3(-2.53, 1.75, 0);
+    windscreen.parent = root;
+
+    // ── Front face (nose) ─────────────────────────────────────────────────
+    const nose = MeshBuilder.CreateBox('nose', {width:0.25, height:0.7, depth:2.1}, sc);
+    nose.material = bodyMat;
+    nose.position = new Vector3(-2.62, 0.9, 0);
+    nose.parent = root;
+
+    // ── Headlights ────────────────────────────────────────────────────────
+    const hlR = MeshBuilder.CreateBox('hlR', {width:0.08, height:0.28, depth:0.55}, sc);
+    hlR.material = lightMat;
+    hlR.position = new Vector3(-2.72, 1.0, 0.72);
+    hlR.parent = root;
+
+    const hlL = MeshBuilder.CreateBox('hlL', {width:0.08, height:0.28, depth:0.55}, sc);
+    hlL.material = lightMat;
+    hlL.position = new Vector3(-2.72, 1.0, -0.72);
+    hlL.parent = root;
+
+    // ── Grille ────────────────────────────────────────────────────────────
+    const grille = MeshBuilder.CreateBox('grille', {width:0.08, height:0.22, depth:1.2}, sc);
+    grille.material = chromeMat;
+    grille.position = new Vector3(-2.72, 0.6, 0);
+    grille.parent = root;
+
+    // ── Side windows (right side — 3 passenger windows) ──────────────────
+    for (let i = 0; i < 3; i++) {
+      const wx = 0.8 + i * 1.15;
+      const win = MeshBuilder.CreateBox('winR'+i, {width:0.9, height:0.55, depth:0.05}, sc);
+      win.material = glassMat;
+      win.position = new Vector3(wx, 1.75, 1.06);
+      win.parent = root;
     }
+    // Cab side window
+    const cabWinR = MeshBuilder.CreateBox('cabWinR', {width:0.65, height:0.5, depth:0.05}, sc);
+    cabWinR.material = glassMat;
+    cabWinR.position = new Vector3(-1.75, 1.75, 1.06);
+    cabWinR.parent = root;
 
-    // ── FRONT BUMPER ───────────────────────────────────
-    const bumper = MeshBuilder.CreateBox('bumper_f', {
-      width: 2.1, height: 0.22, depth: 0.25
-    }, this.scene);
-    bumper.parent = body;
-    bumper.position.set(0, -1.0, 2.55);
-    bumper.material = this._mat('bmpMat', ...BLACK, 0.1, 0.1, 0.1);
+    // ── Side windows (left side) ─────────────────────────────────────────
+    for (let i = 0; i < 3; i++) {
+      const wx = 0.8 + i * 1.15;
+      const win = MeshBuilder.CreateBox('winL'+i, {width:0.9, height:0.55, depth:0.05}, sc);
+      win.material = glassMat;
+      win.position = new Vector3(wx, 1.75, -1.06);
+      win.parent = root;
+    }
+    const cabWinL = MeshBuilder.CreateBox('cabWinL', {width:0.65, height:0.5, depth:0.05}, sc);
+    cabWinL.material = glassMat;
+    cabWinL.position = new Vector3(-1.75, 1.75, -1.06);
+    cabWinL.parent = root;
 
-    // ── HEADLIGHTS ─────────────────────────────────────
-    [-0.72, 0.72].forEach((x, i) => {
-      const hl = MeshBuilder.CreateBox('hl_' + i, {
-        width: 0.45, height: 0.28, depth: 0.08
-      }, this.scene);
-      hl.parent = body;
-      hl.position.set(x, -0.22, 2.64);
-      hl.material = this._mat('hlM_' + i, 0.95, 0.92, 0.7, 0.4, 0.4, 0.3);
-      hl.material.emissiveColor = new Color3(0.25, 0.22, 0.08);
+    // ── Rear face ─────────────────────────────────────────────────────────
+    const rear = MeshBuilder.CreateBox('rear', {width:0.08, height:2.1, depth:2.1}, sc);
+    rear.material = bodyMat;
+    rear.position = new Vector3(2.54, 1.2, 0);
+    rear.parent = root;
 
-      // DRL strip above headlight
-      const drl = MeshBuilder.CreateBox('drl_' + i, {
-        width: 0.45, height: 0.05, depth: 0.07
-      }, this.scene);
-      drl.parent = body;
-      drl.position.set(x, -0.06, 2.64);
-      drl.material = this._mat('drlM_' + i, 0.98, 0.98, 0.9, 0.6, 0.6, 0.5);
-      drl.material.emissiveColor = new Color3(0.4, 0.4, 0.3);
-    });
+    // ── Tail lights ───────────────────────────────────────────────────────
+    const tlR = MeshBuilder.CreateBox('tlR', {width:0.08, height:0.22, depth:0.45}, sc);
+    tlR.material = tailMat;
+    tlR.position = new Vector3(2.56, 0.9, 0.72);
+    tlR.parent = root;
 
-    // ── FRONT PLATE ────────────────────────────────────
-    const plate = MeshBuilder.CreateBox('plate_f', {
-      width: 0.75, height: 0.20, depth: 0.05
-    }, this.scene);
-    plate.parent = body;
-    plate.position.set(0, -0.90, 2.66);
-    plate.material = this._mat('platM', 0.92, 0.92, 0.92, 0.3, 0.3, 0.3);
+    const tlL = MeshBuilder.CreateBox('tlL', {width:0.08, height:0.22, depth:0.45}, sc);
+    tlL.material = tailMat;
+    tlL.position = new Vector3(2.56, 0.9, -0.72);
+    tlL.parent = root;
 
-    // ── SIDE WINDOWS ───────────────────────────────────
-    const winZL = [0.9, 0.05];           // left side (2 windows — door side open)
-    const winZR = [0.9, 0.05, -0.85];   // right side (3 windows)
-    const winMat = this._mat('winMat', ...DARK, 0.5, 0.6, 0.7, 0.88);
+    // ── Sliding door outline (right side, passenger area) ─────────────────
+    const door = MeshBuilder.CreateBox('slideDoor', {width:1.5, height:1.7, depth:0.04}, sc);
+    door.material = this._mat('doorEdge', '#CCCCBB', 0.1);
+    door.position = new Vector3(1.0, 1.2, 1.065);
+    door.parent = root;
 
-    winZL.forEach((z, wi) => {
-      const w = MeshBuilder.CreateBox('winL_' + wi, {
-        width: 0.07, height: 0.52, depth: 0.75
-      }, this.scene);
-      w.parent = body;
-      w.position.set(-1.06, 0.5, z);
-      w.material = winMat;
-    });
-    winZR.forEach((z, wi) => {
-      const w = MeshBuilder.CreateBox('winR_' + wi, {
-        width: 0.07, height: 0.52, depth: 0.75
-      }, this.scene);
-      w.parent = body;
-      w.position.set(1.06, 0.5, z);
-      w.material = winMat;
-    });
+    // ── Black bottom sill (step board) ────────────────────────────────────
+    const sill = MeshBuilder.CreateBox('sill', {width:5.0, height:0.12, depth:0.18}, sc);
+    sill.material = darkMat;
+    sill.position = new Vector3(0, 0.16, 1.14);
+    sill.parent = root;
 
-    // ── SIDE BODY TRIM STRIP ───────────────────────────
-    [-1.07, 1.07].forEach((x, i) => {
-      const trim = MeshBuilder.CreateBox('trim_' + i, {
-        width: 0.07, height: 0.12, depth: 5.1
-      }, this.scene);
-      trim.parent = body;
-      trim.position.set(x, -0.65, 0);
-      trim.material = this._mat('trimM_' + i, ...BLACK, 0.1, 0.1, 0.1);
-    });
+    const sillL = MeshBuilder.CreateBox('sillL', {width:5.0, height:0.12, depth:0.18}, sc);
+    sillL.material = darkMat;
+    sillL.position = new Vector3(0, 0.16, -1.14);
+    sillL.parent = root;
 
-    // ── SIDE MIRRORS ───────────────────────────────────
-    [-1.15, 1.15].forEach((x, i) => {
-      const mir = MeshBuilder.CreateBox('mir_' + i, {
-        width: 0.12, height: 0.18, depth: 0.32
-      }, this.scene);
-      mir.parent = body;
-      mir.position.set(x, 0.62, 1.9);
-      mir.material = this._mat('mirM_' + i, ...MINT_D, 0.3, 0.4, 0.3);
-    });
+    // ── Roof rack rails ──────────────────────────────────────────────────
+    const roofR = MeshBuilder.CreateBox('roofR', {width:4.8, height:0.07, depth:0.07}, sc);
+    roofR.material = chromeMat;
+    roofR.position = new Vector3(0.1, 2.28, 0.85);
+    roofR.parent = root;
 
-    // ── OPEN SLIDING DOOR (right side) ─────────────────
-    // Gap/opening where door was (dark interior visible)
-    const doorGap = MeshBuilder.CreateBox('door_gap', {
-      width: 0.10, height: 1.80, depth: 1.05
-    }, this.scene);
-    doorGap.parent = body;
-    doorGap.position.set(1.07, 0.08, 0.22);
-    doorGap.material = this._mat('gapMat', ...DARK, 0.1, 0.1, 0.1, 0.97);
+    const roofL = MeshBuilder.CreateBox('roofL', {width:4.8, height:0.07, depth:0.07}, sc);
+    roofL.material = chromeMat;
+    roofL.position = new Vector3(0.1, 2.28, -0.85);
+    roofL.parent = root;
 
-    // Interior floor visible through gap
-    const intFloor = MeshBuilder.CreateBox('int_floor', {
-      width: 0.5, height: 0.06, depth: 1.0
-    }, this.scene);
-    intFloor.parent = body;
-    intFloor.position.set(0.85, -0.82, 0.22);
-    intFloor.material = this._mat('floorMat', 0.12, 0.10, 0.10, 0.1, 0.1, 0.1);
+    // ── Bumpers ──────────────────────────────────────────────────────────
+    const frontBumper = MeshBuilder.CreateBox('fBumper', {width:0.2, height:0.22, depth:2.2}, sc);
+    frontBumper.material = chromeMat;
+    frontBumper.position = new Vector3(-2.72, 0.35, 0);
+    frontBumper.parent = root;
 
-    // Step board below door opening
-    const step = MeshBuilder.CreateBox('step', {
-      width: 0.35, height: 0.08, depth: 0.95
-    }, this.scene);
-    step.parent = body;
-    step.position.set(1.2, -0.98, 0.22);
-    step.material = this._mat('stepMat', ...BLACK, 0.2, 0.2, 0.2);
+    const rearBumper = MeshBuilder.CreateBox('rBumper', {width:0.2, height:0.22, depth:2.2}, sc);
+    rearBumper.material = chromeMat;
+    rearBumper.position = new Vector3(2.62, 0.35, 0);
+    rearBumper.parent = root;
 
-    // Door panel slid back
-    const slideDoor = MeshBuilder.CreateBox('slide_door', {
-      width: 0.09, height: 1.82, depth: 1.40
-    }, this.scene);
-    slideDoor.parent = body;
-    slideDoor.position.set(1.07, 0.08, -1.52);
-    slideDoor.material = this._mat('sdMat', ...MINT, 0.4, 0.5, 0.4);
-
-    // Door handle on slid panel
-    const handle = MeshBuilder.CreateBox('d_handle', {
-      width: 0.13, height: 0.08, depth: 0.25
-    }, this.scene);
-    handle.parent = body;
-    handle.position.set(1.14, 0.08, -0.85);
-    handle.material = this._mat('hndMat', 0.3, 0.3, 0.3, 0.7, 0.7, 0.7);
-
-    // ── REAR WINDOW ────────────────────────────────────
-    const rearWin = MeshBuilder.CreateBox('rear_win', {
-      width: 1.5, height: 0.6, depth: 0.07
-    }, this.scene);
-    rearWin.parent = body;
-    rearWin.position.set(0, 0.5, -2.62);
-    rearWin.material = glassMat;
-
-    // ── TAIL LIGHTS ────────────────────────────────────
-    [-0.65, 0.65].forEach((x, i) => {
-      const tl = MeshBuilder.CreateBox('tail_' + i, {
-        width: 0.35, height: 0.22, depth: 0.07
-      }, this.scene);
-      tl.parent = body;
-      tl.position.set(x, -0.35, -2.63);
-      const tlm = this._mat('tlM_' + i, 0.85, 0.1, 0.1, 0.3, 0.05, 0.05);
-      tlm.emissiveColor = new Color3(0.18, 0.0, 0.0);
-      tl.material = tlm;
-    });
-
-    // Rear bumper
-    const rbumper = MeshBuilder.CreateBox('bumper_r', {
-      width: 2.1, height: 0.20, depth: 0.22
-    }, this.scene);
-    rbumper.parent = body;
-    rbumper.position.set(0, -1.0, -2.54);
-    rbumper.material = this._mat('rbMat', ...BLACK, 0.1, 0.1, 0.1);
-
-    // ── WHEELS — 4 lowered black tyres + gold rims ─────
-    const wheelPos = [
-      new Vector3(-1.15, -0.88, 1.55),
-      new Vector3( 1.15, -0.88, 1.55),
-      new Vector3(-1.15, -0.88, -1.55),
-      new Vector3( 1.15, -0.88, -1.55)
+    // ── 4 Wheels ──────────────────────────────────────────────────────────
+    const wheelPositions = [
+      new Vector3(-1.6, 0.42, 1.12),   // front right
+      new Vector3(-1.6, 0.42, -1.12),  // front left
+      new Vector3( 1.5, 0.42, 1.12),   // rear right
+      new Vector3( 1.5, 0.42, -1.12),  // rear left
     ];
-    this.wheels = wheelPos.map((pos, i) => {
-      // Tyre
-      const w = MeshBuilder.CreateCylinder('wheel_' + i, {
-        diameter: 0.95, height: 0.42, tessellation: 20
-      }, this.scene);
-      w.rotation.z = Math.PI / 2;
-      w.parent = body;
-      w.position = pos;
-      w.material = this._mat('wm_' + i, ...BLACK, 0.05, 0.05, 0.05);
 
-      // Gold rim
-      const hub = MeshBuilder.CreateCylinder('hub_' + i, {
-        diameter: 0.55, height: 0.44, tessellation: 16
-      }, this.scene);
+    wheelPositions.forEach((pos, i) => {
+      const tire = MeshBuilder.CreateCylinder('tire'+i, {
+        diameter: 0.84, height: 0.38, tessellation: 20
+      }, sc);
+      tire.material = tireMat;
+      tire.rotation.z = Math.PI / 2;
+      tire.position = pos.clone();
+      tire.parent = root;
+
+      const rim = MeshBuilder.CreateCylinder('rim'+i, {
+        diameter: 0.52, height: 0.39, tessellation: 16
+      }, sc);
+      rim.material = rimMat;
+      rim.rotation.z = Math.PI / 2;
+      rim.position = pos.clone();
+      rim.parent = root;
+
+      // Hub cap
+      const hub = MeshBuilder.CreateCylinder('hub'+i, {
+        diameter: 0.18, height: 0.40, tessellation: 8
+      }, sc);
+      hub.material = chromeMat;
       hub.rotation.z = Math.PI / 2;
-      hub.parent = body;
-      hub.position = pos;
-      hub.material = this._mat('hm_' + i, ...GOLD, 0.7, 0.55, 0.2);
-
-      // Centre cap
-      const cap = MeshBuilder.CreateCylinder('cap_' + i, {
-        diameter: 0.18, height: 0.45, tessellation: 10
-      }, this.scene);
-      cap.rotation.z = Math.PI / 2;
-      cap.parent = body;
-      cap.position = pos;
-      cap.material = this._mat('capM_' + i, ...CHROME, 0.9, 0.9, 0.9);
-
-      return w;
+      hub.position = pos.clone();
+      hub.parent = root;
     });
-
-    return body;
   }
 
+  // ── Keyboard controls ─────────────────────────────────────────────────
   _setupKeyboard() {
-    const keys = {};
-    window.addEventListener('keydown', e => { keys[e.key] = true; });
-    window.addEventListener('keyup',   e => { keys[e.key] = false; });
-    const self = this;
-    this.scene.onBeforeRenderObservable.add(() => {
-      self.input.forward  = (keys['ArrowUp']    || keys['w'] || keys['W']) ? 1 : 0;
-      self.input.backward = (keys['ArrowDown']  || keys['s'] || keys['S']) ? 1 : 0;
-      self.input.left     = (keys['ArrowLeft']  || keys['a'] || keys['A']) ? 1 : 0;
-      self.input.right    = (keys['ArrowRight'] || keys['d'] || keys['D']) ? 1 : 0;
-      self.input.honk     = keys['h'] || keys['H'];
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp'   || e.key === 'w') this.input.fwd   = 1;
+      if (e.key === 'ArrowDown' || e.key === 's') this.input.back  = 1;
+      if (e.key === 'ArrowLeft' || e.key === 'a') this.input.left  = 1;
+      if (e.key === 'ArrowRight'|| e.key === 'd') this.input.right = 1;
+      if (e.key === ' ') this.honk();
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowUp'   || e.key === 'w') this.input.fwd   = 0;
+      if (e.key === 'ArrowDown' || e.key === 's') this.input.back  = 0;
+      if (e.key === 'ArrowLeft' || e.key === 'a') this.input.left  = 0;
+      if (e.key === 'ArrowRight'|| e.key === 'd') this.input.right = 0;
     });
   }
 
-  _setupHorn() {
-    this._hornPlaying = false;
+  // ── Joystick input (called from UI) ──────────────────────────────────
+  setJoystick(nx, ny) {
+    // ny: -1 = full forward, +1 = full reverse
+    // nx: -1 = hard left, +1 = hard right
+    this.input.fwd   = Math.max(0, -ny);
+    this.input.back  = Math.max(0,  ny);
+    this.input.left  = Math.max(0, -nx);
+    this.input.right = Math.max(0,  nx);
+  }
+
+  // ── Horn — real audio beep ────────────────────────────────────────────
+  honk() {
     try {
-      this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch(e) { this._audioCtx = null; }
+      if (!this._hornCtx) {
+        this._hornCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = this._hornCtx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      // Vincy bus horn — two-tone
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(380, ctx.currentTime);
+      osc.frequency.setValueAtTime(320, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.55, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.45);
+    } catch(e) {
+      console.warn('Horn audio failed:', e);
+    }
   }
 
-  _honk() {
-    if (!this._audioCtx || this._hornPlaying) return;
-    this._hornPlaying = true;
-    const osc  = this._audioCtx.createOscillator();
-    const gain = this._audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(this._audioCtx.destination);
-    osc.frequency.setValueAtTime(320, this._audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.3, this._audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this._audioCtx.currentTime + 0.5);
-    osc.start();
-    osc.stop(this._audioCtx.currentTime + 0.5);
-    setTimeout(() => { this._hornPlaying = false; }, 600);
-  }
+  // ── Physics update (call every frame) ────────────────────────────────
+  update(deltaMs) {
+    const dt = Math.min(deltaMs / 1000, 0.05); // seconds, capped at 50ms
+    const speedMs = this.speed / 3.6; // convert km/h → m/s for world units
 
-  update(deltaTime) {
-    const dt = deltaTime / 1000;
-    const ti = window.touchInput || { x: 0, y: 0, honk: false };
-    const fwd = this.input.forward  || (ti.y < -0.2 ? -ti.y : 0);
-    const bwd = this.input.backward || (ti.y >  0.2 ?  ti.y : 0);
-    const lft = this.input.left     || (ti.x < -0.2 ? -ti.x : 0);
-    const rgt = this.input.right    || (ti.x >  0.2 ?  ti.x : 0);
-
-    if (fwd) {
-      this.speed = Math.min(this.maxSpeed, this.speed + this.acceleration * dt);
-    } else if (bwd) {
-      this.speed = Math.max(-this.maxSpeed * 0.4, this.speed - this.braking * dt);
+    // Throttle / brake
+    if (this.input.fwd > 0) {
+      this.speed = Math.min(this.speed + this.accel * dt * this.input.fwd, this.maxSpeed);
+    } else if (this.input.back > 0) {
+      this.speed = Math.max(this.speed - this.decel * dt * this.input.back, -this.maxSpeed * 0.4);
     } else {
-      this.speed *= this.friction;
-      if (Math.abs(this.speed) < 0.1) this.speed = 0;
+      // Coast — apply friction
+      this.speed *= (1 - (1 - this.friction) * dt * 60);
+      if (Math.abs(this.speed) < 0.5) this.speed = 0;
     }
 
-    const sf = Math.min(1, Math.abs(this.speed) / 30);
-    if (lft) this.steerAngle -= this.maxSteer * sf;
-    if (rgt) this.steerAngle += this.maxSteer * sf;
-    this.steerAngle *= 0.88;
+    // Steering — ONLY turns when actually moving (no spinning in place)
+    const speedFactor = Math.min(Math.abs(this.speed) / 15, 1); // 0 at 0 km/h, 1 at 15+ km/h
+    const steerDir = (this.input.right - this.input.left);
+    const maxRotPerSec = 1.2; // radians/sec at full speed
+    const steerAmount = steerDir * maxRotPerSec * speedFactor * dt;
+    this.root.rotation.y += steerAmount * Math.sign(this.speed);
 
-    const forward = new Vector3(
-      Math.sin(this.mesh.rotation.y), 0,
-      Math.cos(this.mesh.rotation.y)
+    // Move forward along facing direction
+    const fwd = new Vector3(
+      -Math.sin(this.root.rotation.y),
+      0,
+      -Math.cos(this.root.rotation.y)
     );
-    this.mesh.rotation.y += this.steerAngle * Math.sign(this.speed);
-    this.mesh.position.addInPlace(forward.scale(this.speed * dt));
+    const worldSpeedPerSec = this.speed / 3.6 * 10; // scaled for world units
+    this.root.position.addInPlace(fwd.scale(worldSpeedPerSec * dt));
 
+    // Terrain follow — keep van on ground
     if (this.terrain) {
-      const y = this.terrain.getHeightAtCoordinates(
-        this.mesh.position.x, this.mesh.position.z) || 0;
-      this.mesh.position.y = y + 1.4;
+      const groundY = this._getGroundHeight(this.root.position.x, this.root.position.z);
+      this.root.position.y = groundY + 0.42; // wheel radius offset
     }
-
-    const wheelSpin = (this.speed / 20) * dt;
-    if (this.wheels) {
-      this.wheels.forEach(w => { w.rotation.x += wheelSpin; });
-    }
-
-    if (this.input.honk || ti.honk) this._honk();
   }
 
-  getPosition() { return this.mesh.position.clone(); }
+  _getGroundHeight(x, z) {
+    try {
+      if (this.terrain.getHeightAtCoordinates) {
+        return this.terrain.getHeightAtCoordinates(x, z) || 0;
+      }
+    } catch(e) {}
+    return 0;
+  }
 
-  setColor(r, g, b) {
-    if (this.mesh && this.mesh.material) {
-      this.mesh.material.diffuseColor = new Color3(r, g, b);
-    }
+  // Speed in km/h for HUD display
+  getSpeed() {
+    return Math.round(Math.abs(this.speed));
   }
 }
