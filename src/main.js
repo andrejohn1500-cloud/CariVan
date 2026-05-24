@@ -1,175 +1,148 @@
-/**
- * main.js  (UPDATED)
- *
- * CariVan entry point.
- *
- * Screen flow:
- *   mainMenu → garage → loading (game init) → hud ↔ pause
- *
- * The BabylonJS engine and scene are created once on first load.
- * The game world is initialised inside initGame(), which is called
- * by LoadingScreen when the player hits Play.
- */
-
 import {
   Engine, Scene, Vector3,
   HemisphericLight, DirectionalLight,
-  Color3, Color4,
-  ArcRotateCamera, ShadowGenerator
+  Color3, Color4, ArcRotateCamera, ShadowGenerator
 } from '@babylonjs/core';
 
-import { buildTerrain }              from './terrain/TerrainMesh.js';
-import { buildOcean }                from './terrain/OceanPlane.js';
-import { fetchSVGRoads }             from './map/OSMFetcher.js';
+import { buildTerrain }                 from './terrain/TerrainMesh.js';
+import { buildOcean }                   from './terrain/OceanPlane.js';
+import { fetchSVGRoads }                from './map/OSMFetcher.js';
 import { renderRoads, renderJunctions } from './map/RoadRenderer.js';
-import { VanController }             from './vehicles/VanController.js';
-import { buildCivic, buildFitHybrid } from './vehicles/PlayerCars.js';
-import { buildArgyleAirport }        from './world/ArgyleAirport.js';
+import { VanController }                from './vehicles/VanController.js';
+import { buildCivic, buildFitHybrid }   from './vehicles/PlayerCars.js';
+import { buildArgyleAirport }           from './world/ArgyleAirport.js';
 
-import { ScreenManager }    from './ui/ScreenManager.js';
-import { MainMenu }         from './ui/MainMenu.js';
-import { GarageScreen }     from './ui/GarageScreen.js';
-import { LoadingScreen }    from './ui/LoadingScreen.js';
-import { HUD }              from './ui/HUD.js';
-import { PauseScreen }      from './ui/PauseScreen.js';
+let _engine, _scene, _van, _camera, _roads = [];
+let _paused = false;
 
-// ── Load CSS ──────────────────────────────────────────────────────────
-const link = document.createElement('link');
-link.rel   = 'stylesheet';
-link.href  = './src/styles/ui.css';
-document.head.appendChild(link);
-
-// ── Globals ───────────────────────────────────────────────────────────
-let _engine  = null;
-let _scene   = null;
-let _van     = null;
-let _camera  = null;
-let _shadows = null;
-
-// ── Bootstrap ─────────────────────────────────────────────────────────
-async function bootstrap() {
-  // Create BabylonJS engine (but don't init the world yet)
-  const canvas = document.getElementById('renderCanvas');
-  _engine = new Engine(canvas, true);
-
-  // Start the screen system
-  const sm = new ScreenManager();
-
-  const garage   = new GarageScreen(sm);
-  const loading  = new LoadingScreen(sm, (vehicle, onProgress) =>
-    initGame(vehicle, onProgress, canvas, sm, garage));
-  const hud      = new HUD(sm, () => _van);
-  const pause    = new PauseScreen(sm);
-  const mainMenu = new MainMenu(sm);
-
-  sm.register('mainMenu', mainMenu);
-  sm.register('garage',   garage);
-  sm.register('loading',  loading);
-  sm.register('hud',      hud);
-  sm.register('pause',    pause);
-
-  // Start on main menu
-  sm.show('mainMenu');
-
-  // Resize handler
-  window.addEventListener('resize', () => { if (_engine) _engine.resize(); });
+function setProgress(pct, msg) {
+  const f = document.getElementById('progress-fill');
+  const t = document.getElementById('status-text');
+  if (f) f.style.width = pct + '%';
+  if (t) t.textContent = msg;
 }
 
-// ── Game world initialisation ─────────────────────────────────────────
-async function initGame(vehicle, onProgress, canvas, sm, garage) {
-  // If scene already exists, dispose it cleanly
-  if (_scene) {
-    _scene.dispose();
-    _scene = null;
-    _van   = null;
+function hideLoading() {
+  const el = document.getElementById('loading');
+  if (!el) return;
+  el.style.transition = 'opacity 0.5s';
+  el.style.opacity = '0';
+  setTimeout(() => el.remove(), 600);
+}
+
+// Called by SM.startGame()
+window._startCariVan = async function(vehicleType, missionType) {
+  const canvas = document.getElementById('renderCanvas');
+
+  if (_scene) { _scene.dispose(); _scene = null; _van = null; }
+  if (!_engine) {
+    _engine = new Engine(canvas, true);
+    window.addEventListener('resize', () => _engine.resize());
   }
+
+  // Show loading
+  const loading = document.createElement('div');
+  loading.id = 'loading';
+  loading.innerHTML = `
+    <h1 style="color:#4CAF72;font-size:2rem;font-family:sans-serif">🇻🇨 CariVan</h1>
+    <p style="color:#888;font-family:sans-serif;margin:8px 0 24px">Loading ${missionType}…</p>
+    <div id="progress-bar" style="width:240px;height:5px;background:#1e1e1e;border-radius:3px;overflow:hidden">
+      <div id="progress-fill" style="height:100%;width:0%;background:#4CAF72;transition:width 0.25s"></div>
+    </div>
+    <div id="status-text" style="margin-top:10px;font-size:0.78rem;color:#555;font-family:sans-serif">Starting…</div>
+  `;
+  loading.style.cssText = 'position:fixed;inset:0;z-index:200;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center';
+  document.body.appendChild(loading);
 
   _scene = new Scene(_engine);
   _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1);
 
-  onProgress(8, 'Setting up lighting…');
-
-  // Lighting
-  const ambient = new HemisphericLight('ambient', new Vector3(0, 1, 0), _scene);
-  ambient.intensity   = 0.7;
-  ambient.diffuse     = new Color3(1, 0.97, 0.88);
+  setProgress(8, 'Setting up lighting…');
+  const ambient = new HemisphericLight('ambient', new Vector3(0,1,0), _scene);
+  ambient.intensity = 0.7;
+  ambient.diffuse = new Color3(1, 0.97, 0.88);
   ambient.groundColor = new Color3(0.25, 0.45, 0.20);
 
-  const sun = new DirectionalLight('sun', new Vector3(-0.5, -1, -0.3), _scene);
-  sun.intensity = 1.2;
-  sun.position  = new Vector3(5000, 8000, 3000);
+  const sun = new DirectionalLight('sun', new Vector3(-0.5,-1,-0.3), _scene);
+  sun.intensity = 1.2; sun.position = new Vector3(5000, 8000, 3000);
+  const shadows = new ShadowGenerator(1024, sun);
+  shadows.useBlurExponentialShadowMap = true;
 
-  _shadows = new ShadowGenerator(1024, sun);
-  _shadows.useBlurExponentialShadowMap = true;
+  setProgress(18, 'Loading terrain…');
+  const terrain = await buildTerrain(_scene, msg => setProgress(28, msg));
+  shadows.addShadowCaster(terrain);
 
-  onProgress(18, 'Loading terrain elevation…');
-  const terrain = await buildTerrain(_scene, msg => onProgress(30, msg));
-  _shadows.addShadowCaster(terrain);
-
-  onProgress(42, 'Filling in the Caribbean Sea…');
+  setProgress(40, 'Filling the Caribbean Sea…');
   buildOcean(_scene);
 
-  onProgress(52, 'Fetching real SVG road data…');
-  await fetchSVGRoads(msg => onProgress(60, msg));
+  setProgress(50, 'Laying SVG roads…');
+  await fetchSVGRoads(msg => setProgress(58, msg));
 
-  onProgress(65, 'Rendering road network…');
-  renderRoads(_scene, terrain);
+  setProgress(64, 'Rendering road network…');
+  _roads = renderRoads(_scene, terrain) || [];
   renderJunctions(_scene, terrain);
 
-  onProgress(72, 'Building Argyle Airport…');
+  setProgress(72, 'Building Argyle Airport…');
   buildArgyleAirport(_scene, terrain);
 
-  onProgress(80, 'Spawning vehicles…');
-  window.touchInput = { x: 0, y: 0, honk: false };
+  setProgress(80, 'Spawning vehicles…');
+  const sx = -1200, sz = -8000;
+  const sy = terrain.getHeightAtCoordinates(sx, sz) + 1.5;
+  _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
+  shadows.addShadowCaster(_van.mesh);
+  window.gameVan = _van;
 
-  // Determine spawn position based on selected vehicle
-  // All vehicles now query real terrain height
-  const spawnX = -1200, spawnZ = -8000;
-  const spawnY = terrain.getHeightAtCoordinates(spawnX, spawnZ) + 1.5;
+  buildCivic(_scene, new Vector3(-800, terrain.getHeightAtCoordinates(-800,-7500)+0.8, -7500));
+  buildFitHybrid(_scene, new Vector3(-600, terrain.getHeightAtCoordinates(-600,-7200)+0.86, -7200));
 
-  _van = new VanController(_scene, terrain, new Vector3(spawnX, spawnY, spawnZ));
-  _shadows.addShadowCaster(_van.mesh);
-
-  // Park the other cars with correct terrain height
-  const civicX = -800, civicZ = -7500;
-  const civicY  = terrain.getHeightAtCoordinates(civicX, civicZ) + 0.8;
-  buildCivic(_scene, new Vector3(civicX, civicY, civicZ));
-
-  const fitX = -600, fitZ = -7200;
-  const fitY  = terrain.getHeightAtCoordinates(fitX, fitZ) + 0.86;
-  buildFitHybrid(_scene, new Vector3(fitX, fitY, fitZ));
-
-  onProgress(90, 'Setting up camera…');
-  _camera = new ArcRotateCamera('cam', -Math.PI / 2, Math.PI / 3.5, 28,
-    _van.mesh.position, _scene);
+  setProgress(90, 'Camera…');
+  _camera = new ArcRotateCamera('cam', -Math.PI/2, Math.PI/3.5, 28, _van.mesh.position, _scene);
   _camera.lowerRadiusLimit = 10;
   _camera.upperRadiusLimit = 80;
+  _camera.upperBetaLimit = Math.PI / 2.1;
   _camera.attachControl(canvas, true);
 
-  // Smooth camera follow
   _scene.onBeforeRenderObservable.add(() => {
     if (_van && _camera) {
       _camera.target = Vector3.Lerp(_camera.target, _van.mesh.position, 0.08);
     }
   });
 
-  // Render loop
-  let lastTime = performance.now();
+  let last = performance.now();
   _engine.runRenderLoop(() => {
+    if (_paused) return;
     const now = performance.now();
-    if (_van) _van.update(now - lastTime);
-    lastTime = now;
+    _van.update(now - last);
+    last = now;
+
+    // HUD
+    const gear = _van.speed >= 0 ? 'D' : 'R';
+    if (window.updateHUD) window.updateHUD(_van.getSpeed(), gear);
+    if (window.updateMinimap) window.updateMinimap(
+      _van.root.position.x, _van.root.position.z, _roads
+    );
+
+    // Speed-based wanted level
+    if (window.SM) {
+      const spd = _van.getSpeed();
+      window.SM.setWanted(spd > 100 ? 3 : spd > 70 ? 2 : spd > 50 ? 1 : 0);
+    }
+
     _scene.render();
   });
 
-  onProgress(100, 'St. Vincent ready!');
+  setProgress(100, 'St. Vincent ready! 🇻🇨');
+  setTimeout(() => {
+    hideLoading();
+    if (window.SM) window.SM.onGameReady();
+  }, 500);
+};
 
-  // Expose for debugging
-  window.gameScene = _scene;
-  window.gameVan   = _van;
-}
+window._pauseGame  = () => { _paused = true; };
+window._resumeGame = () => { _paused = false; };
+window._stopGame   = () => { _paused = true; };
+window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
+window._applySettings  = (s) => { /* radio/sfx hooks go here */ };
 
-// ── Go ────────────────────────────────────────────────────────────────
-bootstrap().catch(err => {
-  console.error('CariVan bootstrap failed:', err);
-});
+// Show main menu on load (loading div hides once engine boots)
+// Engine boots lazily when Play is pressed — nothing renders until then
