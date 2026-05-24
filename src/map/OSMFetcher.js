@@ -1,29 +1,14 @@
-/**
- * OSMFetcher.js  (REPLACED)
- *
- * Fetches REAL road data for St. Vincent from the OpenStreetMap
- * Overpass API.  Falls back to baked data if network fails.
- *
- * The Overpass query pulls every highway way inside the SVG bounding box.
- * Results are normalised to the same format the rest of the project
- * expects, so RoadRenderer.js needs no changes.
- *
- * Road priority tiers (determines render width):
- *   primary   → 18 world units
- *   secondary → 14
- *   tertiary  → 11
- *   residential/unclassified → 9
- *   track/path → 6
- */
+// OSMFetcher.js
+// Fetches real SVG road data from OpenStreetMap Overpass API.
+// Falls back to baked data if network fails.
 
-// ── World-space conversion ────────────────────────────────────────────
 export const SVG_BOUNDS = {
   south: 12.97, north: 13.58,
   west: -61.50, east: -61.10,
   worldWidth:  29000,
   worldHeight: 45000
 };
-export { SVG_ROADS_BAKED as SVG_ROADS };
+
 export function geoToWorld(lat, lon) {
   const s = SVG_BOUNDS;
   const x = ((lon - s.west)  / (s.east  - s.west))  * s.worldWidth  - s.worldWidth  / 2;
@@ -31,139 +16,78 @@ export function geoToWorld(lat, lon) {
   return { x, z };
 }
 
-// ── Road width by OSM highway type ───────────────────────────────────
 const ROAD_WIDTH = {
-  motorway:        22,
-  trunk:           20,
-  primary:         18,
-  secondary:       14,
-  tertiary:        11,
-  unclassified:     9,
-  residential:      9,
-  living_street:    7,
-  service:          7,
-  track:            6,
-  path:             5,
-  footway:          4,
-  default:          8,
+  motorway: 22, trunk: 20, primary: 18, secondary: 14,
+  tertiary: 11, unclassified: 9, residential: 9,
+  living_street: 7, service: 7, track: 6, path: 5,
+  footway: 4, default: 8,
 };
 
 const ROAD_COLOR = {
-  motorway:   [0.12, 0.12, 0.25],
-  trunk:      [0.14, 0.14, 0.14],
-  primary:    [0.18, 0.18, 0.18],
-  secondary:  [0.20, 0.20, 0.20],
-  default:    [0.22, 0.22, 0.22],
+  motorway: [0.12, 0.12, 0.25], trunk: [0.14, 0.14, 0.14],
+  primary: [0.18, 0.18, 0.18], secondary: [0.20, 0.20, 0.20],
+  default: [0.22, 0.22, 0.22],
 };
 
-function roadWidth(type)  { return ROAD_WIDTH[type]  || ROAD_WIDTH.default; }
-function roadColor(type)  { return ROAD_COLOR[type]  || ROAD_COLOR.default; }
+function roadWidth(type) { return ROAD_WIDTH[type] || ROAD_WIDTH.default; }
+function roadColor(type) { return ROAD_COLOR[type] || ROAD_COLOR.default; }
 
-// ── In-memory cache so we only fetch once per session ─────────────────
 let _cachedRoads = null;
 
-// ── Main export ───────────────────────────────────────────────────────
 export async function fetchSVGRoads(onProgress) {
   if (_cachedRoads) return _cachedRoads;
-
-  if (onProgress) onProgress('Fetching OSM road data for St. Vincent…');
-
+  if (onProgress) onProgress('Fetching OSM road data for St. Vincent...');
   try {
     const roads = await _fetchFromOverpass(onProgress);
     _cachedRoads = roads;
-    console.log(`OSMFetcher: loaded ${Object.keys(roads).length} road segments from Overpass`);
     return roads;
   } catch (err) {
-    console.warn('OSMFetcher: Overpass failed, using baked roads →', err.message);
-    if (onProgress) onProgress('Using cached road network…');
-    _cachedRoads = SVG_ROADS_BAKED;
-    return SVG_ROADS_BAKED;
+    console.warn('OSMFetcher: Overpass failed, using baked roads:', err.message);
+    if (onProgress) onProgress('Using cached road network...');
+    _cachedRoads = SVG_ROADS;
+    return SVG_ROADS;
   }
 }
 
-// ── Overpass API fetch ────────────────────────────────────────────────
 async function _fetchFromOverpass(onProgress) {
   const { south, north, west, east } = SVG_BOUNDS;
-
-  // Only fetch driveable roads (exclude footways, cycleways etc. for performance)
-  const query = `
-    [out:json][timeout:30];
-    (
-      way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|track)$"]
-         (${south},${west},${north},${east});
-    );
-    out body;
-    >;
-    out skel qt;
-  `.trim();
-
+  const query = `[out:json][timeout:30];(way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|track)$"](${south},${west},${north},${east}););out body;>;out skel qt;`;
   const url = 'https://overpass-api.de/api/interpreter';
   const resp = await fetch(url, {
-    method:  'POST',
-    body:    'data=' + encodeURIComponent(query),
+    method: 'POST',
+    body: 'data=' + encodeURIComponent(query),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
-
-  if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status}`);
-
-  if (onProgress) onProgress('Parsing road geometry…');
-
+  if (!resp.ok) throw new Error('Overpass HTTP ' + resp.status);
+  if (onProgress) onProgress('Parsing road geometry...');
   const json = await resp.json();
   return _parseOverpassResponse(json);
 }
 
-// ── Parse Overpass JSON → our road format ─────────────────────────────
 function _parseOverpassResponse(json) {
-  // Build node id → { lat, lon } lookup
   const nodes = {};
   json.elements.forEach(el => {
     if (el.type === 'node') nodes[el.id] = { lat: el.lat, lon: el.lon };
   });
-
   const roads = {};
-  let idx = 0;
-
   json.elements.forEach(el => {
     if (el.type !== 'way') return;
     if (!el.tags || !el.tags.highway) return;
     if (!el.nodes || el.nodes.length < 2) return;
-
     const type = el.tags.highway;
-    const name = el.tags.name || el.tags['name:en'] || type + '_' + el.id;
-    const key  = 'osm_' + el.id;
-
-    // Convert node ids → [lat, lon] pairs
-    const points = el.nodes
-      .map(nid => nodes[nid])
-      .filter(Boolean)
-      .map(n => [n.lat, n.lon]);
-
+    const key = 'osm_' + el.id;
+    const points = el.nodes.map(nid => nodes[nid]).filter(Boolean).map(n => [n.lat, n.lon]);
     if (points.length < 2) return;
-
     roads[key] = {
-      id:     el.id,
-      name,
-      type,
-      width:  roadWidth(type),
-      color:  roadColor(type),
-      points,
+      id: el.id,
+      name: el.tags.name || type + '_' + el.id,
+      type, width: roadWidth(type), color: roadColor(type), points,
     };
-
-    idx++;
   });
-
   return roads;
 }
 
-// ── Baked fallback ────────────────────────────────────────────────────
-// Used when Overpass is unreachable (offline, timeout, etc.)
-// Based on actual OSM coordinates for SVG's main roads.
-
-// SVG_ROADS exported at bottom of file
-
-// Note: These coordinates are real GPS traces from OSM for St. Vincent.
-// They are more accurate than the original hand-typed approximations.
-const SVG_ROADS_BAKED = {
+export const SVG_ROADS = {
   leeward_highway: {
     name: 'Leeward Highway', type: 'primary', width: 18, color: [0.18, 0.18, 0.18],
     points: [
@@ -241,4 +165,3 @@ const SVG_ROADS_BAKED = {
     ]
   },
 };
-export { SVG_ROADS_BAKED as SVG_ROADS };
