@@ -159,7 +159,7 @@ function _parseOverpassResponse(json) {
 // Used when Overpass is unreachable (offline, timeout, etc.)
 // Based on actual OSM coordinates for SVG's main roads.
 
-// alias for other files that import SVG_ROADS
+// SVG_ROADS exported at bottom of file
 
 // Note: These coordinates are real GPS traces from OSM for St. Vincent.
 // They are more accurate than the original hand-typed approximations.
