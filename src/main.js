@@ -157,7 +157,19 @@ window._applySettings  = (s) => { /* radio/sfx hooks go here */ };// Hide loadin
   } else {
     if (window.SM) window.SM.show('menu');
   }
-})();
+})();// Error wrapper for Play button
+const _origStart = window._startCariVan;
+window._startCariVan = async function(vehicleType, missionType) {
+  try {
+    await _origStart(vehicleType, missionType);
+  } catch(err) {
+    console.error('Game failed:', err);
+    const st = document.getElementById('status-text');
+    const pf = document.getElementById('progress-fill');
+    if (st) st.textContent = '❌ ' + err.message;
+    if (pf) pf.style.background = '#c0392b';
+  }
+};
 
 // Show main menu on load (loading div hides once engine boots)
 // Engine boots lazily when Play is pressed — nothing renders until then
