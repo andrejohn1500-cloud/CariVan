@@ -11,7 +11,7 @@ import { renderRoads, renderJunctions } from './map/RoadRenderer.js';
 import { VanController }                from './vehicles/VanController.js';
 import { buildCivic, buildFitHybrid }   from './vehicles/PlayerCars.js';
 import { buildArgyleAirport }           from './world/ArgyleAirport.js';
-
+import { buildSVGLocations } from './world/SVGLocations.js';
 let _engine, _scene, _van, _camera, _roads = [];
 let _paused = false;
 
