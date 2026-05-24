@@ -1,7 +1,8 @@
 import {
   Engine, Scene, Vector3,
   HemisphericLight, DirectionalLight,
-  Color3, Color4, ArcRotateCamera, ShadowGenerator
+  Color3, Color4, ArcRotateCamera,
+  MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
 import { buildTerrain }                 from './terrain/TerrainMesh.js';
@@ -55,26 +56,22 @@ window._startCariVan = async function(vehicleType, missionType) {
     }
 
     _scene = new Scene(_engine);
-    _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1); // Caribbean sky
+    _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1);
 
     setProgress(8, 'Setting up lighting…');
 
+    // No ShadowGenerator — was crashing on TransformNode van mesh
     const ambient = new HemisphericLight('ambient', new Vector3(0,1,0), _scene);
-    ambient.intensity   = 0.9;
+    ambient.intensity   = 1.0;
     ambient.diffuse     = new Color3(1, 0.97, 0.88);
     ambient.groundColor = new Color3(0.25, 0.45, 0.20);
 
-    const sun = new DirectionalLight('sun', new Vector3(-0.5,-1,-0.3), _scene);
-    sun.intensity = 1.2;
-    sun.position  = new Vector3(5000, 8000, 3000);
-    const shadows = new ShadowGenerator(1024, sun);
-    shadows.useBlurExponentialShadowMap = true;
+    const sun = new DirectionalLight('sun', new Vector3(-0.4,-1,-0.3), _scene);
+    sun.intensity = 1.0;
 
     setProgress(18, 'Loading terrain…');
     const terrain = await buildTerrain(_scene, msg => setProgress(28, msg));
-    shadows.addShadowCaster(terrain);
 
-    // Ocean at -2 — correct, below island ground level
     setProgress(42, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
@@ -90,50 +87,50 @@ window._startCariVan = async function(vehicleType, missionType) {
 
     setProgress(80, 'Spawning van…');
 
-    // Spawn near Kingstown on the leeward coast — known land coordinates
-    // These world coords map to ~13.16N, 61.23W which is Kingstown area
-    // Kingstown area — correct world coords with flipped heightmap
-const sx = -5800, sz = -14400;
-const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
-const sy = Math.max(rawH, 15) + 2;
+    // Fixed spawn — Kingstown area, guaranteed above ground
+    const sx = -5800, sz = -14400;
+    const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
+    const sy = Math.max(rawH, 20) + 3;
 
     _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
-    shadows.addShadowCaster(_van.mesh);
     window.gameVan = _van;
+
+    // Bright marker cube at van spawn — confirms camera is pointing right
+    const marker = MeshBuilder.CreateBox('marker', { size: 8 }, _scene);
+    marker.position = new Vector3(sx, sy + 4, sz);
+    const markerMat = new StandardMaterial('markerMat', _scene);
+    markerMat.diffuseColor = new Color3(1, 0.2, 0);
+    markerMat.emissiveColor = new Color3(0.8, 0.1, 0);
+    marker.material = markerMat;
+    // Remove marker after 5 seconds
+    setTimeout(() => { if (marker) marker.dispose(); }, 5000);
 
     setProgress(90, 'Camera…');
 
-    // ── GTA-style follow camera ──────────────────────────────────
-    // Starts 1m above van, slightly behind, pitched down ~15 degrees
-    // alpha: rotation around Y (behind van = -PI/2)
-    // beta:  vertical angle from top pole
-    //        PI/2 = horizon level
-    //        PI/2 + 0.26 = ~15 degrees below horizon (looking slightly down)
-    // radius: 12 world units behind van — close, personal
-
+    // ArcRotateCamera — beta=1.1 = 63 degrees from top = looking down 27 degrees
+    // This MUST show ground below and sky above
     _camera = new ArcRotateCamera(
       'cam',
-      -Math.PI / 2,          // behind the van
-      Math.PI / 2 + 0.26,    // 15 degrees below horizon
-      12,                    // ~12 units behind — GTA close distance
-      _van.root.position,
+      -Math.PI / 2,  // behind van
+      1.1,           // 63 deg from top — looking down ✅
+      20,            // 20 units back
+      new Vector3(sx, sy + 1, sz),
       _scene
     );
-
-    // Allow player to tilt up/down but not go underground
-    _camera.lowerBetaLimit    = 0.3;           // can look up toward sky
-    _camera.upperBetaLimit    = Math.PI / 2 + 0.6; // can look further down
-    _camera.lowerRadiusLimit  = 6;             // can zoom in close
-    _camera.upperRadiusLimit  = 40;            // can zoom out a bit
+    _camera.minZ             = 0.1;
+    _camera.maxZ             = 50000;
+    _camera.lowerBetaLimit   = 0.2;
+    _camera.upperBetaLimit   = 1.45;
+    _camera.lowerRadiusLimit = 8;
+    _camera.upperRadiusLimit = 80;
     _camera.attachControl(canvas, true);
 
-    // Smooth camera follow — tracks van position every frame
+    // Follow van every frame
     _scene.onBeforeRenderObservable.add(() => {
       if (_van && _camera) {
-        // Target is 1 meter above van root — camera looks at chest height
-        const vanPos = _van.root.position.clone();
-        vanPos.y += 1.0; // 1 meter above ground level
-        _camera.target = Vector3.Lerp(_camera.target, vanPos, 0.08);
+        const t = _van.root.position.clone();
+        t.y += 1;
+        _camera.target = Vector3.Lerp(_camera.target, t, 0.1);
       }
     });
 
@@ -157,7 +154,6 @@ const sy = Math.max(rawH, 15) + 2;
     });
 
     setProgress(100, 'St. Vincent ready! 🇻🇨');
-
     setTimeout(() => {
       hideLoading();
       if (window.SM) window.SM.onGameReady();
@@ -176,7 +172,9 @@ window._resumeGame     = () => { _paused = false; };
 window._stopGame       = () => { _paused = true; };
 window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
 window._applySettings  = (s) => {};
+
 window.SM = window.SM || (typeof SM !== 'undefined' ? SM : null);
+
 (function() {
   const el = document.getElementById('loading');
   if (el) {
