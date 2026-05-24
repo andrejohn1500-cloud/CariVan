@@ -88,7 +88,8 @@ window._startCariVan = async function(vehicleType, missionType) {
     setProgress(80, 'Spawning van…');
 
     // Fixed spawn — Kingstown area, guaranteed above ground
-    const sx = -5800, sz = -14400;
+    // Kingstown in geoToWorld coordinates
+const sx = 5278, sz = -8550;
     const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
     const sy = Math.max(rawH, 20) + 3;
 
