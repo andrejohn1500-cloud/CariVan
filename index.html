@@ -505,4 +505,345 @@
         <option value="40">Far</option>
       </select>
     </div>
-    <
+    <div class="setting-row">
+        <div>
+          <div class="setting-label">🌅 Graphics</div>
+          <div class="setting-sub">Higher = better shadows</div>
+        </div>
+        <select class="setting-select" onchange="SM.setGraphics(this.value)">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+</div>
+
+<!-- About -->
+<div id="screen-about" class="screen">
+  <button class="back-btn" onclick="SM.show('menu')">← Back</button>
+  <div class="about-logo">🚐</div>
+  <h2>CariVan</h2>
+  <div class="about-ver">v0.2 · Open World SVG</div>
+  <div class="about-block">
+    <h3>Built by</h3>
+    <p>Andre N. John — DREs Apps<br>St. Vincent & the Grenadines 🇻🇨<br>Solo indie developer</p>
+  </div>
+  <div class="about-block">
+    <h3>The Game</h3>
+    <p>Drive the roads of St. Vincent in an open world. Pick up passengers, earn XCD, evade police, and explore every corner of the island — from Kingstown to Argyle.</p>
+  </div>
+  <div class="about-block">
+    <h3>Tech</h3>
+    <p>Built with BabylonJS + Capacitor Android.<br>Real SVG road network. Procedural terrain.</p>
+  </div>
+  <div class="about-flag">🇻🇨 Made in SVG</div>
+</div>
+
+<!-- Pause -->
+<div id="screen-pause" class="screen">
+  <h2>⏸ Paused</h2>
+  <button class="btn btn-primary" onclick="SM.resume()">▶ Resume</button>
+  <button class="btn btn-secondary" onclick="SM.show('garage')">🚐 Garage</button>
+  <button class="btn btn-secondary" onclick="SM.show('missions')">📍 Missions</button>
+  <button class="btn btn-secondary" onclick="SM.show('settings')">⚙️ Settings</button>
+  <button class="btn btn-danger" onclick="SM.exitToMenu()">🏠 Main Menu</button>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <span style="font-size:1rem">🚐</span>
+  <span id="speed-val">0</span>
+  <span id="hud-unit">km/h</span>
+  <span id="hud-gear">D</span>
+  <span style="font-size:1rem">🇻🇨</span>
+</div>
+
+<div id="xcd-hud">
+  <span>💰</span>
+  <span id="xcd-val">$0</span>
+  <span style="font-size:0.72rem;color:#888">XCD</span>
+</div>
+
+<div id="mission-hud">
+  <strong id="mission-title">Free Roam</strong>
+  <span id="mission-obj"> · Explore SVG</span>
+</div>
+
+<div id="wanted-hud">
+  <span class="star" id="star1">★</span>
+  <span class="star" id="star2">★</span>
+  <span class="star" id="star3">★</span>
+</div>
+
+<button id="pause-btn" onclick="SM.pause()">⏸</button>
+
+<div id="minimap">
+  <canvas id="minimapCanvas" width="100" height="100"></canvas>
+</div>
+
+<div id="joystick-base">
+  <div id="joystick-knob"></div>
+</div>
+
+<button id="honk-btn">
+  <span class="icon">📯</span>
+  <span>HONK</span>
+</button>
+
+<div id="toast"></div>
+
+<script>
+const SM = {
+  current: 'menu',
+  settings: { radio: true, sfx: true, haptics: true },
+  selectedVehicle: 'van',
+  xcd: 0,
+  activeMission: null,
+  gameRunning: false,
+  screenIds: ['menu','garage','missions','leaderboard','settings','about','pause'],
+
+  show(id) {
+    this.screenIds.forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.classList.remove('active');
+    });
+    const target = document.getElementById('screen-' + id);
+    if (target) target.classList.add('active');
+    this.current = id;
+    if (id !== 'pause') this._hideHUD();
+    if (id === 'garage') document.getElementById('garage-xcd').textContent = '$' + this.xcd;
+    if (id === 'leaderboard') document.getElementById('my-score').textContent = '$' + this.xcd + ' XCD';
+  },
+
+  _hideHUD() {
+    ['hud','xcd-hud','mission-hud','wanted-hud','pause-btn',
+     'minimap','joystick-base','honk-btn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('visible');
+    });
+  },
+
+  _showHUD() {
+    ['hud','xcd-hud','mission-hud','wanted-hud','pause-btn',
+     'minimap','joystick-base','honk-btn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('visible');
+    });
+    this.screenIds.forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.classList.remove('active');
+    });
+  },
+
+  startGame() {
+    this.screenIds.forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.classList.remove('active');
+    });
+    if (window._startCariVan) {
+      window._startCariVan(this.selectedVehicle, this.activeMission || 'freeRoam');
+    }
+  },
+
+  startMission(type) {
+    this.activeMission = type;
+    const titles = {
+      taxi: 'Minibus Run', delivery: 'Arnos Vale Delivery',
+      race: 'Leeward Highway Dash', escape: 'Lose the Police', freeRoam: 'Free Roam'
+    };
+    const objs = {
+      taxi: 'Pick up passengers near Market Square',
+      delivery: 'Go to the depot in Arnos Vale',
+      race: 'Head to the start line on Leeward Hwy',
+      escape: '3-star wanted — lose the police!',
+      freeRoam: 'Explore SVG 🇻🇨'
+    };
+    document.getElementById('mission-title').textContent = titles[type] || 'Mission';
+    document.getElementById('mission-obj').textContent = ' · ' + (objs[type] || '');
+    this.startGame();
+  },
+
+  pause() {
+    this.gameRunning = false;
+    if (window._pauseGame) window._pauseGame();
+    this.screenIds.forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.classList.remove('active');
+    });
+    document.getElementById('screen-pause').classList.add('active');
+    this._showHUD();
+  },
+
+  resume() {
+    this.screenIds.forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.classList.remove('active');
+    });
+    this._showHUD();
+    this.gameRunning = true;
+    if (window._resumeGame) window._resumeGame();
+  },
+
+  exitToMenu() {
+    this._hideHUD();
+    if (window._stopGame) window._stopGame();
+    this.show('menu');
+  },
+
+  selectVehicle(type) {
+    this.selectedVehicle = type;
+    ['van','civic','fit'].forEach(v => {
+      const card = document.getElementById('card-' + v);
+      if (card) card.classList.remove('selected');
+    });
+    const target = document.getElementById('card-' + type);
+    if (target && !target.classList.contains('locked')) {
+      target.classList.add('selected');
+      this.toast('Selected: ' + type);
+    } else {
+      this.toast('🔒 Earn more XCD to unlock!');
+    }
+  },
+
+  toggleSetting(key, btn) {
+    this.settings[key] = !this.settings[key];
+    btn.classList.toggle('on', this.settings[key]);
+    if (window._applySettings) window._applySettings(this.settings);
+  },
+
+  setCamDistance(val) { if (window._setCamDistance) window._setCamDistance(parseInt(val)); },
+  setGraphics(val)    { if (window._setGraphics) window._setGraphics(val); },
+
+  updateXCD(amount) {
+    this.xcd += amount;
+    const el = document.getElementById('xcd-val');
+    if (el) el.textContent = '$' + this.xcd;
+    if (this.xcd >= 300) {
+      const f = document.getElementById('card-fit');
+      if (f) { f.classList.remove('locked'); document.getElementById('fit-badge').textContent = 'BUY $300'; }
+    }
+    if (this.xcd >= 500) {
+      const c = document.getElementById('card-civic');
+      if (c) { c.classList.remove('locked'); document.getElementById('civic-badge').textContent = 'BUY $500'; }
+    }
+  },
+
+  setWanted(stars) {
+    for (let i = 1; i <= 3; i++) {
+      const s = document.getElementById('star' + i);
+      if (s) s.classList.toggle('lit', i <= stars);
+    }
+    const el = document.getElementById('wanted-hud');
+    if (el) el.classList.toggle('visible', stars > 0);
+  },
+
+  toast(msg, dur = 2200) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+  },
+
+  onGameReady() {
+    this.gameRunning = true;
+    this._showHUD();
+  }
+};
+
+// Joystick
+const jBase = document.getElementById('joystick-base');
+const jKnob = document.getElementById('joystick-knob');
+let _jTouchId = null;
+
+function _jCenter() {
+  const r = jBase.getBoundingClientRect();
+  return { cx: r.left + r.width/2, cy: r.top + r.height/2, radius: r.width/2 - 8 };
+}
+function _jMove(cx2, cy2) {
+  const { cx, cy, radius } = _jCenter();
+  const dx = cx2 - cx, dy = cy2 - cy;
+  const dist = Math.min(Math.hypot(dx, dy), radius);
+  const ang  = Math.atan2(dy, dx);
+  const nx = Math.cos(ang) * dist / radius;
+  const ny = Math.sin(ang) * dist / radius;
+  jKnob.style.transform = `translate(${nx*radius}px,${ny*radius}px)`;
+  if (window.gameVan) window.gameVan.setJoystick(nx, ny);
+}
+function _jReset() {
+  _jTouchId = null;
+  jKnob.style.transform = 'translate(0,0)';
+  if (window.gameVan) window.gameVan.setJoystick(0, 0);
+}
+
+jBase.addEventListener('touchstart', e => {
+  e.preventDefault();
+  _jTouchId = e.changedTouches[0].identifier;
+  _jMove(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (_jTouchId === null) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === _jTouchId) { e.preventDefault(); _jMove(t.clientX, t.clientY); break; }
+  }
+}, { passive: false });
+
+window.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === _jTouchId) { _jReset(); break; }
+  }
+});
+
+// Honk
+const honkBtn = document.getElementById('honk-btn');
+honkBtn.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (window.gameVan) window.gameVan.honk();
+  if (SM.settings.haptics && navigator.vibrate) navigator.vibrate(60);
+}, { passive: false });
+honkBtn.addEventListener('click', () => { if (window.gameVan) window.gameVan.honk(); });
+
+// HUD updater
+window.updateHUD = function(speedKmh, gear) {
+  const sv = document.getElementById('speed-val');
+  const gv = document.getElementById('hud-gear');
+  if (sv) sv.textContent = Math.round(Math.abs(speedKmh));
+  if (gv) gv.textContent = gear || 'D';
+};
+
+// Minimap
+window.updateMinimap = function(vanX, vanZ, roads) {
+  const canvas = document.getElementById('minimapCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 100, H = 100, worldW = 29000, worldH = 45000;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#061a0e'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#1a5c2a';
+  ctx.beginPath(); ctx.ellipse(W/2, H/2, 24, 42, 0, 0, Math.PI*2); ctx.fill();
+  if (roads && roads.length) {
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 1.2;
+    roads.forEach(r => {
+      if (!r || !r.points || r.points.length < 2) return;
+      ctx.beginPath();
+      r.points.forEach((p, i) => {
+        const mx = ((p.x + worldW/2) / worldW) * W;
+        const my = H - ((p.z + worldH/2) / worldH) * H;
+        i === 0 ? ctx.moveTo(mx, my) : ctx.lineTo(mx, my);
+      });
+      ctx.stroke();
+    });
+  }
+  const vx = ((vanX + worldW/2) / worldW) * W;
+  const vy = H - ((vanZ + worldH/2) / worldH) * H;
+  ctx.fillStyle = '#F5C518';
+  ctx.beginPath(); ctx.arc(vx, vy, 3.5, 0, Math.PI*2); ctx.fill();
+};
+</script>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
