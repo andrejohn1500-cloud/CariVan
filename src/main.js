@@ -5,7 +5,6 @@ import {
 } from '@babylonjs/core';
 
 import { buildTerrain }                 from './terrain/TerrainMesh.js';
-import { buildOcean }                   from './terrain/OceanPlane.js';
 import { fetchSVGRoads }                from './map/OSMFetcher.js';
 import { renderRoads, renderJunctions } from './map/RoadRenderer.js';
 import { VanController }                from './vehicles/VanController.js';
@@ -75,8 +74,7 @@ window._startCariVan = async function(vehicleType, missionType) {
     const terrain = await buildTerrain(_scene, msg => setProgress(28, msg));
     shadows.addShadowCaster(terrain);
 
-    setProgress(40, 'Filling the Caribbean Sea…');
-    buildOcean(_scene);
+    // No ocean for now — was covering camera view
 
     setProgress(50, 'Laying SVG roads…');
     await fetchSVGRoads(msg => setProgress(58, msg));
@@ -90,22 +88,23 @@ window._startCariVan = async function(vehicleType, missionType) {
 
     setProgress(80, 'Spawning vehicles…');
 
-    // Spawn in Mesopotamia Valley — guaranteed highland terrain
-    const sx = 1450, sz = -3600;
-    const sy = terrain.getHeightAtCoordinates(sx, sz) + 2;
+    // Spawn at world center — use raw height or fall back to 200
+    const sx = 0, sz = 0;
+    const rawY = terrain.getHeightAtCoordinates(sx, sz);
+    const sy = (rawY && rawY > 5 ? rawY : 200) + 2;
+
     _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
     shadows.addShadowCaster(_van.mesh);
     window.gameVan = _van;
 
-    buildCivic(_scene, new Vector3(
-      1800, terrain.getHeightAtCoordinates(1800, -3200) + 0.8, -3200));
-    buildFitHybrid(_scene, new Vector3(
-      2000, terrain.getHeightAtCoordinates(2000, -3000) + 0.86, -3000));
+    buildCivic(_scene, new Vector3(50,
+      ((terrain.getHeightAtCoordinates(50,50)||200)+0.8), 50));
+    buildFitHybrid(_scene, new Vector3(-50,
+      ((terrain.getHeightAtCoordinates(-50,50)||200)+0.86), 50));
 
     setProgress(90, 'Camera…');
 
-    // Camera targets van root (TransformNode), not mesh
-    _camera = new ArcRotateCamera('cam', -Math.PI/2, Math.PI/3.5, 35,
+    _camera = new ArcRotateCamera('cam', -Math.PI/2, Math.PI/2.8, 35,
       _van.root.position, _scene);
     _camera.lowerRadiusLimit = 15;
     _camera.upperRadiusLimit = 120;
@@ -145,7 +144,7 @@ window._startCariVan = async function(vehicleType, missionType) {
       if (window.SM) window.SM.onGameReady();
       if (_camera && _van) {
         _camera.radius = 35;
-        _camera.beta   = Math.PI / 3;
+        _camera.beta   = Math.PI / 2.8;
         _camera.target = _van.root.position.clone();
       }
     }, 800);
@@ -164,7 +163,6 @@ window._stopGame       = () => { _paused = true; };
 window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
 window._applySettings  = (s) => {};
 
-// Hide boot loading screen → show main menu
 (function() {
   const el = document.getElementById('loading');
   if (el) {
