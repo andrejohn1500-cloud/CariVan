@@ -1,12 +1,16 @@
 import {
-  Engine, Scene, Vector3, HemisphericLight,
-  DirectionalLight, Color3, Color4, ArcRotateCamera,
+  Engine, Scene, Vector3,
+  HemisphericLight,
+  DirectionalLight, Color3, Color4,
+  ArcRotateCamera,
   ShadowGenerator
 } from '@babylonjs/core';
 import { buildTerrain } from './terrain/TerrainMesh.js';
 import { buildOcean } from './terrain/OceanPlane.js';
 import { fetchSVGRoads } from './map/OSMFetcher.js';
+import { renderRoads, renderJunctions } from './map/RoadRenderer.js';
 import { VanController } from './vehicles/VanController.js';
+import { buildCivic, buildFitHybrid } from './vehicles/PlayerCars.js';
 
 const progressFill = document.getElementById('progress-fill');
 const statusText = document.getElementById('status-text');
@@ -49,21 +53,27 @@ async function init() {
   setProgress(45, 'Filling in the Caribbean Sea...');
   buildOcean(scene);
 
-  setProgress(55, 'Fetching SVG roads...');
-  try {
-    await fetchSVGRoads(function(msg) { setProgress(60, msg); });
-    setProgress(75, 'Roads loaded!');
-  } catch(err) {
-    setProgress(75, 'Using fallback roads...');
-  }
+  setProgress(55, 'Laying SVG roads...');
+  await fetchSVGRoads(function(msg) { setProgress(60, msg); });
+  setProgress(68, 'Rendering road network...');
+  renderRoads(scene, terrain);
+  renderJunctions(scene, terrain);
+  setProgress(75, 'Roads ready!');
 
   setProgress(80, 'Spawning your van...');
   window.touchInput = { x: 0, y: 0, honk: false };
   const van = new VanController(scene, terrain, new Vector3(-1200, 10, -8000));
   shadowGen.addShadowCaster(van.mesh);
 
+  setProgress(84, 'Parking the Civic...');
+  buildCivic(scene, new Vector3(-800, 10, -7500));
+
+  setProgress(87, "Parking wifey's Fit...");
+  buildFitHybrid(scene, new Vector3(-600, 10, -7200));
+
   setProgress(88, 'Setting up camera...');
-  const camera = new ArcRotateCamera('cam', -Math.PI / 2, Math.PI / 3.5, 28, van.mesh.position, scene);
+  const camera = new ArcRotateCamera('cam', -Math.PI / 2, Math.PI / 3.5, 28,
+    van.mesh.position, scene);
   camera.lowerRadiusLimit = 10;
   camera.upperRadiusLimit = 80;
   camera.attachControl(canvas, true);
