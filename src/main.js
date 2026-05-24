@@ -55,8 +55,7 @@ window._startCariVan = async function(vehicleType, missionType) {
     }
 
     _scene = new Scene(_engine);
-    // Caribbean sky blue — correct
-    _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1);
+    _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1); // Caribbean sky
 
     setProgress(8, 'Setting up lighting…');
 
@@ -75,7 +74,7 @@ window._startCariVan = async function(vehicleType, missionType) {
     const terrain = await buildTerrain(_scene, msg => setProgress(28, msg));
     shadows.addShadowCaster(terrain);
 
-    // Ocean sits at y = -8 — below sea level, correct
+    // Ocean at -2 — correct, below island ground level
     setProgress(42, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
@@ -91,54 +90,50 @@ window._startCariVan = async function(vehicleType, missionType) {
 
     setProgress(80, 'Spawning van…');
 
-    // Spawn at y=500 — well above terrain, van falls to ground via physics
-    const SPAWN = new Vector3(0, 500, 0);
-    _van = new VanController(_scene, terrain, SPAWN);
+    // Spawn near Kingstown on the leeward coast — known land coordinates
+    // These world coords map to ~13.16N, 61.23W which is Kingstown area
+    const sx = -3200, sz = -6500;
+    const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
+    // If terrain returns 0 (sea) bump up to 10 so van sits on coastal flat
+    const sy = Math.max(rawH, 10) + 2;
+
+    _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
     shadows.addShadowCaster(_van.mesh);
     window.gameVan = _van;
 
     setProgress(90, 'Camera…');
 
-    // Camera starts high and angled down — guaranteed to see terrain
-    // alpha = side angle, beta = vertical angle (PI/3 = 60deg down from top)
-    // radius = 1500 — far enough to see island from above
+    // ── GTA-style follow camera ──────────────────────────────────
+    // Starts 1m above van, slightly behind, pitched down ~15 degrees
+    // alpha: rotation around Y (behind van = -PI/2)
+    // beta:  vertical angle from top pole
+    //        PI/2 = horizon level
+    //        PI/2 + 0.26 = ~15 degrees below horizon (looking slightly down)
+    // radius: 12 world units behind van — close, personal
+
     _camera = new ArcRotateCamera(
       'cam',
-      -Math.PI / 2,  // facing forward
-      Math.PI / 3,   // 60 degrees down — sees ground clearly
-      1500,          // far enough to see terrain
-      new Vector3(0, 0, 0),
+      -Math.PI / 2,          // behind the van
+      Math.PI / 2 + 0.26,    // 15 degrees below horizon
+      12,                    // ~12 units behind — GTA close distance
+      _van.root.position,
       _scene
     );
-    _camera.lowerRadiusLimit  = 30;
-    _camera.upperRadiusLimit  = 3000;
-    _camera.lowerBetaLimit    = 0.2;
-    _camera.upperBetaLimit    = Math.PI / 2.05;
+
+    // Allow player to tilt up/down but not go underground
+    _camera.lowerBetaLimit    = 0.3;           // can look up toward sky
+    _camera.upperBetaLimit    = Math.PI / 2 + 0.6; // can look further down
+    _camera.lowerRadiusLimit  = 6;             // can zoom in close
+    _camera.upperRadiusLimit  = 40;            // can zoom out a bit
     _camera.attachControl(canvas, true);
 
-    // After 2 seconds zoom in to van smoothly
-    setTimeout(() => {
-      if (_camera && _van) {
-        _camera.target = _van.root.position.clone();
-        // Animate zoom in
-        let r = 1500;
-        const zoomIn = setInterval(() => {
-          r = r * 0.92;
-          if (_camera) _camera.radius = r;
-          if (r < 60) {
-            clearInterval(zoomIn);
-            if (_camera) _camera.radius = 60;
-          }
-        }, 50);
-      }
-    }, 1200);
-
-    // Camera follows van
+    // Smooth camera follow — tracks van position every frame
     _scene.onBeforeRenderObservable.add(() => {
       if (_van && _camera) {
-        _camera.target = Vector3.Lerp(
-          _camera.target, _van.root.position, 0.04
-        );
+        // Target is 1 meter above van root — camera looks at chest height
+        const vanPos = _van.root.position.clone();
+        vanPos.y += 1.0; // 1 meter above ground level
+        _camera.target = Vector3.Lerp(_camera.target, vanPos, 0.08);
       }
     });
 
