@@ -14,6 +14,11 @@ workflows:
         script: npm install
       - name: Build Vite bundle
         script: npm run build
+      - name: Add Android platform if needed
+        script: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
       - name: Sync Capacitor
         script: npx cap sync android
       - name: Make gradlew executable
