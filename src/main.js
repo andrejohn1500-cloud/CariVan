@@ -176,7 +176,7 @@ window._resumeGame     = () => { _paused = false; };
 window._stopGame       = () => { _paused = true; };
 window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
 window._applySettings  = (s) => {};
-
+window.SM = window.SM || (typeof SM !== 'undefined' ? SM : null);
 (function() {
   const el = document.getElementById('loading');
   if (el) {
