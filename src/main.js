@@ -84,7 +84,8 @@ window._startCariVan = async function(vehicleType, missionType) {
 
   setProgress(72, 'Building Argyle Airport…');
   buildArgyleAirport(_scene, terrain);
-
+setProgress(76, 'Placing road signs & locations…');
+buildSVGLocations(scene, terrain);
   setProgress(80, 'Spawning vehicles…');
   const sx = -1200, sz = -8000;
   const sy = terrain.getHeightAtCoordinates(sx, sz) + 1.5;
