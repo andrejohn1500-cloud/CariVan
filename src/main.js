@@ -143,10 +143,16 @@ window._startCariVan = async function(vehicleType, missionType) {
 
     setProgress(100, 'St. Vincent ready! 🇻🇨');
 
-    setTimeout(() => {
-      hideLoading();
-      if (window.SM) window.SM.onGameReady();
-    }, 500);
+setTimeout(() => {
+  hideLoading();
+  if (window.SM) window.SM.onGameReady();
+  // Force camera to look at van immediately
+  if (_camera && _van) {
+    _camera.radius = 25;
+    _camera.beta = Math.PI / 3;
+    _camera.target = _van.mesh.position.clone();
+  }
+}, 800);
 
   } catch(err) {
     console.error('CariVan failed:', err);
