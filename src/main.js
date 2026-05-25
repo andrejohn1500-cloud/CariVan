@@ -88,38 +88,24 @@ window._startCariVan = async function (vehicleType, missionType) {
     const roadSystem = new RoadSystem(_scene, terrain);
     _roads = [];
 
-    // ── Roadside scenery — palms, bananas, flowers ────────────────────────────
-    setProgress(55, 'Queuing scenery…');
-// Defer heavy GLB loading until after game starts
-setTimeout(() => {
-  try { buildRoadsideScenery(_scene, terrain, roadSystem.points); }
-  catch (e) { console.warn('Scenery failed:', e.message); }
-}, 3000);
-
-setTimeout(() => {
-  try { buildRoadsideTraffic(_scene, terrain, roadSystem.points); }
-  catch (e) { console.warn('Traffic failed:', e.message); }
-}, 6000);
-
     // ── Argyle International Airport ──────────────────────────────────────────
-    setProgress(68, 'Building Argyle International Airport…');
+    setProgress(58, 'Building Argyle International Airport…');
     try {
       buildArgyleAirport(_scene, terrain);
     } catch (e) {
       console.warn('Airport failed:', e.message);
     }
 
-    // ── SVG road signs + location markers ────────────────────────────────────
-    setProgress(74, 'Placing road signs and landmarks…');
-    let _locations = [];
+    // ── SVG road signs + location markers ─────────────────────────────────────
+    setProgress(68, 'Placing road signs and landmarks…');
     try {
-      _locations = buildSVGLocations(_scene, terrain);
+      buildSVGLocations(_scene, terrain);
     } catch (e) {
       console.warn('SVG locations failed:', e.message);
     }
 
     // ── Van spawn — Kingstown harbour ─────────────────────────────────────────
-    setProgress(82, 'Spawning van…');
+    setProgress(80, 'Spawning van…');
     const sx = 5278, sz = -8550;
     const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
     const sy   = Math.max(rawH, 20) + 3;
@@ -132,9 +118,9 @@ setTimeout(() => {
     _van.roadDist = roadSystem.findNearestDist(sx, sz);
     window.gameVan = _van;
 
-    // Orange spawn marker — disappears after 5s
-    const marker = MeshBuilder.CreateBox('marker', { size: 4 }, _scene);
-marker.position = new Vector3(sx, sy + 12, sz);
+    // Small spawn marker high above — disappears after 5s
+    const marker    = MeshBuilder.CreateBox('marker', { size: 4 }, _scene);
+    marker.position = new Vector3(sx, sy + 12, sz);
     const markerMat = new StandardMaterial('markerMat', _scene);
     markerMat.diffuseColor  = new Color3(1, 0.2, 0);
     markerMat.emissiveColor = new Color3(0.8, 0.1, 0);
@@ -177,12 +163,10 @@ marker.position = new Vector3(sx, sy + 12, sz);
     _scene.onBeforeRenderObservable.add(() => {
       if (!_van || !_camera) return;
 
-      // Always follow car position
       const t = _van.root.position.clone();
       t.y += 1;
       _camera.target = Vector3.Lerp(_camera.target, t, 0.08);
 
-      // Auto-return behind car after 3s
       if (performance.now() - _lastCamInput > 3000) {
         _manualCam = false;
       }
@@ -225,6 +209,17 @@ marker.position = new Vector3(sx, sy + 12, sz);
       hideLoading();
       if (window.SM) window.SM.onGameReady();
     }, 800);
+
+    // ── Deferred heavy GLB loading — after game is running ────────────────────
+    setTimeout(() => {
+      try { buildRoadsideScenery(_scene, terrain, roadSystem.points); }
+      catch (e) { console.warn('Scenery failed:', e.message); }
+    }, 3000);
+
+    setTimeout(() => {
+      try { buildRoadsideTraffic(_scene, terrain, roadSystem.points); }
+      catch (e) { console.warn('Traffic failed:', e.message); }
+    }, 6000);
 
   } catch (err) {
     console.error('CariVan failed:', err);
