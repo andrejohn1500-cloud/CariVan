@@ -2,10 +2,6 @@ import {
   MeshBuilder, StandardMaterial, Color3, Vector3,
   TransformNode, SceneLoader
 } from '@babylonjs/core';
-import { GLTFFileLoader } from '@babylonjs/loaders/glTF/2.0/glTFFileLoader.js';
-
-// Register GLB/GLTF loader plugin
-SceneLoader.RegisterPlugin(new GLTFFileLoader());
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  CariVan — Advanced GTA-Style Van Controller
