@@ -8,9 +8,8 @@ import {
 import { buildTerrain }                    from './terrain/TerrainMesh.js';
 import { buildOcean }                      from './terrain/OceanPlane.js';
 import { fetchSVGRoads, SVG_ROADS }        from './map/OSMFetcher.js';
-import { renderRoads, renderJunctions }    from './map/RoadRenderer.js';
 import { VanController }                   from './vehicles/VanController.js';
-import { buildArgyleAirport }              from './world/ArgyleAirport.js';
+import { RoadSystem }                      from './road/RoadSystem.js';
 
 let _engine, _scene, _van, _camera, _roads = [];
 let _paused = false;
@@ -60,7 +59,7 @@ window._startCariVan = async function(vehicleType, missionType) {
     _scene = new Scene(_engine);
     _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1);
 
-    // ── Lighting ────────────────────────────────────────────────────────────
+    // ── Lighting ─────────────────────────────────────────────────────────────
     setProgress(8, 'Setting up lighting…');
     const ambient = new HemisphericLight('ambient', new Vector3(0, 1, 0), _scene);
     ambient.intensity   = 1.0;
@@ -70,45 +69,31 @@ window._startCariVan = async function(vehicleType, missionType) {
     const sun = new DirectionalLight('sun', new Vector3(-0.4, -1, -0.3), _scene);
     sun.intensity = 1.0;
 
-    // ── Terrain ─────────────────────────────────────────────────────────────
+    // ── Terrain ───────────────────────────────────────────────────────────────
     setProgress(18, 'Loading terrain…');
     const terrain = await buildTerrain(_scene, msg => setProgress(28, msg));
 
-    // ── Ocean ───────────────────────────────────────────────────────────────
+    // ── Ocean ─────────────────────────────────────────────────────────────────
     setProgress(42, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
-    // ── Roads — fetch live from OpenStreetMap, fall back to baked data ──────
-    setProgress(50, 'Fetching live SVG roads from OpenStreetMap…');
-    let roadData = null;
-    try {
-      roadData = await fetchSVGRoads(msg => setProgress(56, msg));
-      if (!roadData || Object.keys(roadData).length === 0) {
-        throw new Error('Road data empty');
-      }
-      setProgress(62, `Loaded ${Object.keys(roadData).length} roads ✅`);
-    } catch (err) {
-      console.warn('Live OSM fetch failed — using baked SVG roads:', err.message);
-      roadData = SVG_ROADS;
-      setProgress(62, 'Using baked SVG road network…');
-    }
+    // ── Road network ──────────────────────────────────────────────────────────
+    setProgress(55, 'Building SVG road network…');
+    const roadSystem = new RoadSystem(_scene, terrain);
+    _roads = [];
 
-    // ── Render roads onto terrain ────────────────────────────────────────────
-    setProgress(65, 'Skipping road render for now…');
-_roads = [];
-// renderRoads and renderJunctions disabled temporarily
-
-    // ── World props ──────────────────────────────────────────────────────────
-    setProgress(72, 'Skipping airport for now…');
-// buildArgyleAirport(_scene, terrain);
-
-    // ── Van spawn — Kingstown centre ─────────────────────────────────────────
+    // ── Van spawn — Kingstown centre ──────────────────────────────────────────
     setProgress(80, 'Spawning van…');
     const sx = 5278, sz = -8550;
     const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
     const sy   = Math.max(rawH, 20) + 3;
 
-    _van = new VanController(_scene, terrain, new Vector3(sx, sy, sz));
+    _van = new VanController(
+      _scene, terrain,
+      new Vector3(sx, sy, sz),
+      roadSystem
+    );
+    _van.roadDist = roadSystem.findNearestDist(sx, sz);
     window.gameVan = _van;
 
     // Orange spawn marker — disappears after 5s
@@ -120,13 +105,13 @@ _roads = [];
     marker.material = markerMat;
     setTimeout(() => { if (marker) marker.dispose(); }, 5000);
 
-    // ── Camera — GTA-style follow ────────────────────────────────────────────
+    // ── Camera — GTA-style follow ─────────────────────────────────────────────
     setProgress(90, 'Setting up camera…');
     _camera = new ArcRotateCamera(
       'cam',
-      Math.PI / 2,   // alpha — behind van
-      1.0,            // beta  — 63° from top, looking down
-      240,             // radius
+      Math.PI / 2,
+      1.0,
+      240,
       new Vector3(sx, sy + 1, sz),
       _scene
     );
@@ -138,17 +123,17 @@ _roads = [];
     _camera.upperRadiusLimit = 300;
     _camera.attachControl(canvas, true);
 
-    // Smooth camera follow
+    // Smooth camera follow + auto-rotate behind car
     _scene.onBeforeRenderObservable.add(() => {
       if (_van && _camera) {
         const t = _van.root.position.clone();
         t.y += 1;
         _camera.target = Vector3.Lerp(_camera.target, t, 0.1);
-_camera.alpha += (-_van.heading - Math.PI / 2 - _camera.alpha) * 0.05;
+        _camera.alpha += (-_van.heading - Math.PI / 2 - _camera.alpha) * 0.05;
       }
     });
 
-    // ── Game loop ────────────────────────────────────────────────────────────
+    // ── Game loop ─────────────────────────────────────────────────────────────
     let last = performance.now();
     _engine.runRenderLoop(() => {
       if (_paused) return;
@@ -156,12 +141,12 @@ _camera.alpha += (-_van.heading - Math.PI / 2 - _camera.alpha) * 0.05;
       _van.update(now - last);
       last = now;
 
-      // HUD updates
       if (window.updateHUD) {
         window.updateHUD(_van.getSpeed(), _van.getGear());
       }
       if (window.updateMinimap) {
-        window.updateMinimap(_van.root.position.x, _van.root.position.z, _roads);
+        window.updateMinimap(_van.root.position.x,
+                             _van.root.position.z, _roads);
       }
       if (window.SM) {
         const spd = _van.getSpeed();
@@ -186,15 +171,15 @@ _camera.alpha += (-_van.heading - Math.PI / 2 - _camera.alpha) * 0.05;
 };
 
 // ── Game control hooks ────────────────────────────────────────────────────────
-window._pauseGame      = () => { _paused = true; };
+window._pauseGame      = () => { _paused = true;  };
 window._resumeGame     = () => { _paused = false; };
-window._stopGame       = () => { _paused = true; };
+window._stopGame       = () => { _paused = true;  };
 window._setCamDistance = (r) => { if (_camera) _camera.radius = r; };
 window._applySettings  = (s) => {};
 
 window.SM = window.SM || (typeof SM !== 'undefined' ? SM : null);
 
-// ── Auto-hide loading and show menu on first load ─────────────────────────────
+// ── Auto-hide loading on first load ───────────────────────────────────────────
 (function () {
   const el = document.getElementById('loading');
   if (el) {
