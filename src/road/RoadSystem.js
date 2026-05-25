@@ -52,7 +52,7 @@ export class RoadSystem {
         const t2 = t * t;
         const t3 = t2 * t;
         const f  = (a, b, c, d) =>
-          0.5 * (2*b + (-a+c)*t + (2*a-5*b+4*c-d)*t2 + (-a+3*b-3*c+d)*t3);
+          0.5*(2*b+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);
         const x = f(p0.x, p1.x, p2.x, p3.x);
         const z = f(p0.z, p1.z, p2.z, p3.z);
         pts.push(new Vector3(x, this._groundY(x, z), z));
@@ -77,9 +77,9 @@ export class RoadSystem {
       else hi = mid;
     }
     const t    = (d - this.cumDist[lo]) /
-                 (this.cumDist[lo + 1] - this.cumDist[lo] + 0.0001);
-    const pos  = Vector3.Lerp(this.points[lo], this.points[lo + 1], t);
-    const tang = this.points[lo + 1].subtract(this.points[lo]).normalize();
+                 (this.cumDist[lo+1] - this.cumDist[lo] + 0.0001);
+    const pos  = Vector3.Lerp(this.points[lo], this.points[lo+1], t);
+    const tang = this.points[lo+1].subtract(this.points[lo]).normalize();
     return { pos, tang, heading: Math.atan2(tang.x, tang.z) };
   }
 
@@ -119,44 +119,41 @@ export class RoadSystem {
       const p    = this.points[i];
       const perp = this._perp(i);
       const y    = p.y + 0.10;
-      pathL.push(new Vector3(p.x - perp.x * half, y, p.z - perp.z * half));
-      pathR.push(new Vector3(p.x + perp.x * half, y, p.z + perp.z * half));
+      pathL.push(new Vector3(p.x - perp.x*half, y, p.z - perp.z*half));
+      pathR.push(new Vector3(p.x + perp.x*half, y, p.z + perp.z*half));
     }
 
-    // ── Asphalt surface ───────────────────────────────────────────────────
+    // ── Asphalt — single ribbon ───────────────────────────────────────────
     const road = MeshBuilder.CreateRibbon('road', {
-      pathArray:       [pathL, pathR],
-      closePath:       false,
-      sideOrientation: 2,
+      pathArray: [pathL, pathR],
+      closePath: false, sideOrientation: 2,
     }, this.scene);
     const roadMat = new StandardMaterial('roadMat', this.scene);
     roadMat.diffuseColor    = new Color3(0.20, 0.20, 0.20);
-    roadMat.specularColor   = new Color3(0.05, 0.05, 0.05);
+    roadMat.specularColor   = new Color3(0.04, 0.04, 0.04);
     roadMat.backFaceCulling = false;
     road.material = roadMat;
 
-    // ── Solid yellow centre line ──────────────────────────────────────────
+    // ── Yellow centre line — single ribbon ───────────────────────────────
     const cL = [], cR = [];
     for (let i = 0; i < this.points.length; i++) {
       const p    = this.points[i];
       const perp = this._perp(i);
       const y    = p.y + 0.22;
-      const hw   = 0.9;
-      cL.push(new Vector3(p.x - perp.x * hw, y, p.z - perp.z * hw));
-      cR.push(new Vector3(p.x + perp.x * hw, y, p.z + perp.z * hw));
+      cL.push(new Vector3(p.x - perp.x*0.9, y, p.z - perp.z*0.9));
+      cR.push(new Vector3(p.x + perp.x*0.9, y, p.z + perp.z*0.9));
     }
     const centre = MeshBuilder.CreateRibbon('centre', {
-      pathArray:       [cL, cR],
-      closePath:       false,
-      sideOrientation: 2,
+      pathArray: [cL, cR],
+      closePath: false, sideOrientation: 2,
     }, this.scene);
     const cMat = new StandardMaterial('centreMat', this.scene);
     cMat.diffuseColor    = new Color3(1.0, 0.85, 0.0);
-    cMat.emissiveColor   = new Color3(0.35, 0.28, 0.0);
+    cMat.emissiveColor   = new Color3(0.30, 0.24, 0.0);
     cMat.backFaceCulling = false;
     centre.material = cMat;
 
-    // ── White edge ribbons ────────────────────────────────────────────────
+    // ── White edge ribbons — one each side ───────────────────────────────
     [pathL, pathR].forEach((path, s) => {
       const eL = [], eR = [];
       for (let i = 0; i < path.length; i++) {
@@ -164,63 +161,32 @@ export class RoadSystem {
         const perp = this._perp(i);
         const dir  = s === 0 ? -1 : 1;
         const y    = p.y + 0.18;
-        const hw   = 0.5;
-        eL.push(new Vector3(p.x + perp.x * dir * hw, y, p.z + perp.z * dir * hw));
-        eR.push(new Vector3(p.x - perp.x * dir * hw, y, p.z - perp.z * dir * hw));
+        eL.push(new Vector3(p.x + perp.x*dir*0.5, y, p.z + perp.z*dir*0.5));
+        eR.push(new Vector3(p.x - perp.x*dir*0.5, y, p.z - perp.z*dir*0.5));
       }
-      const edge = MeshBuilder.CreateRibbon('edge' + s, {
-        pathArray:       [eL, eR],
-        closePath:       false,
-        sideOrientation: 2,
+      const edge = MeshBuilder.CreateRibbon('edge'+s, {
+        pathArray: [eL, eR],
+        closePath: false, sideOrientation: 2,
       }, this.scene);
-      const em = new StandardMaterial('edgeMat' + s, this.scene);
+      const em = new StandardMaterial('edgeMat'+s, this.scene);
       em.diffuseColor    = new Color3(0.95, 0.95, 0.95);
-      em.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+      em.emissiveColor   = new Color3(0.16, 0.16, 0.16);
       em.backFaceCulling = false;
       edge.material = em;
     });
 
-    // ── Lane dashes ───────────────────────────────────────────────────────
-    const laneOff = ROAD_WIDTH * 0.25;
-    for (let i = 0; i < this.points.length - 10; i += 14) {
-      const a    = this.points[i];
-      const b    = this.points[(i + 6) % this.points.length];
-      const mid  = Vector3.Lerp(a, b, 0.5);
-      const tang = b.subtract(a).normalize();
-      const perp = new Vector3(tang.z, 0, -tang.x);
-      const len  = Vector3.Distance(a, b);
-
-      [-1, 1].forEach(side => {
-        const dash = MeshBuilder.CreateBox('dash' + side + '_' + i, {
-          width: 0.5, height: 0.05, depth: len * 0.45
-        }, this.scene);
-        dash.position.set(
-          mid.x + perp.x * side * laneOff,
-          mid.y + 0.20,
-          mid.z + perp.z * side * laneOff
-        );
-        dash.rotation.y = Math.atan2(tang.x, tang.z);
-        const dm = new StandardMaterial('dashMat' + side + '_' + i, this.scene);
-        dm.diffuseColor  = new Color3(0.90, 0.90, 0.90);
-        dm.emissiveColor = new Color3(0.14, 0.14, 0.14);
-        dash.material = dm;
-      });
-    }
-
-    // ── Natural grass verges ──────────────────────────────────────────────
+    // ── Grass verges — one ribbon each side ──────────────────────────────
     [
       { path: pathL, name: 'vergeL', dir: -1 },
       { path: pathR, name: 'vergeR', dir:  1 },
     ].forEach(({ path, name, dir }) => {
       const vIn  = [];
       const vOut = [];
-      const vW   = 16;
-
       for (let i = 0; i < path.length; i++) {
         const p    = path[i];
         const perp = this._perp(i);
-        const ox   = p.x + perp.x * dir * vW;
-        const oz   = p.z + perp.z * dir * vW;
+        const ox   = p.x + perp.x * dir * 16;
+        const oz   = p.z + perp.z * dir * 16;
         const oy   = Math.min(
           this.terrain?.getHeightAtCoordinates?.(ox, oz) ?? 0,
           COASTAL_MAX_Y
@@ -228,14 +194,13 @@ export class RoadSystem {
         vIn.push(new Vector3(p.x, p.y - 0.01, p.z));
         vOut.push(new Vector3(ox, oy, oz));
       }
-
       const verge = MeshBuilder.CreateRibbon(name, {
-        pathArray:       [vIn, vOut],
-        closePath:       false,
-        sideOrientation: 2,
+        pathArray: [vIn, vOut],
+        closePath: false, sideOrientation: 2,
       }, this.scene);
-      const vm = new StandardMaterial(name + 'Mat', this.scene);
-      vm.diffuseColor    = new Color3(0.26, 0.46, 0.16);
+      const vm = new StandardMaterial(name+'Mat', this.scene);
+      // Natural muted grass — NO neon, NO emissive
+      vm.diffuseColor    = new Color3(0.18, 0.32, 0.10);
       vm.specularColor   = new Color3(0.01, 0.02, 0.01);
       vm.backFaceCulling = false;
       verge.material = vm;
