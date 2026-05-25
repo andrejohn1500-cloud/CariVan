@@ -18,7 +18,6 @@ const CFG = {
   steerSpeedBlend: 80,
   suspensionHeight: 0.52,
   rollFactor: 0.04,
-  pitchFactor: 0.025,
   worldScale: 10,
 };
 
@@ -35,13 +34,16 @@ export class VanController {
     this.gear = 1;
     this.wheelSpin = [0, 0, 0, 0];
     this.skidding = false;
-    this._joystickActive = false;
 
     this.input = {
       throttle: 0, brake: 0,
       steerL: 0, steerR: 0,
       handbrake: 0,
     };
+
+    this._keys = {};
+    this._joystickX = 0;
+    this._joystickY = 0;
 
     this.root = new TransformNode('vanRoot', scene);
     this.root.position = startPos ? startPos.clone() : new Vector3(0, 4, 0);
@@ -75,7 +77,7 @@ export class VanController {
         this._bodyNode.position.y = CFG.suspensionHeight;
         this._wheelNodes.forEach(n => { if (n) n.setEnabled(false); });
         this._glbLoaded = true;
-        console.log('subaru_impreza.glb loaded');
+        console.log('subaru loaded');
       })
       .catch(err => {
         console.warn('GLB not found:', err);
@@ -146,36 +148,18 @@ export class VanController {
   }
 
   _setupInput() {
-    const keys = {};
     window.addEventListener('keydown', e => {
-      keys[e.key] = true;
+      this._keys[e.key] = true;
       if (e.key === ' ') { e.preventDefault(); this.honk(); }
     });
-    window.addEventListener('keyup', e => { keys[e.key] = false; });
-
-    this._pollKeys = () => {
-      const t  = (keys['ArrowUp']    || keys['w'] || keys['W']) ? 1 : 0;
-      const b  = (keys['ArrowDown']  || keys['s'] || keys['S']) ? 1 : 0;
-      const sl = (keys['ArrowLeft']  || keys['a'] || keys['A']) ? 1 : 0;
-      const sr = (keys['ArrowRight'] || keys['d'] || keys['D']) ? 1 : 0;
-      const hb = (keys['Shift']      || keys['e'] || keys['E']) ? 1 : 0;
-      if (t || b || sl || sr || hb) {
-        this.input.throttle  = t;
-        this.input.brake     = b;
-        this.input.steerL    = sl;
-        this.input.steerR    = sr;
-        this.input.handbrake = hb;
-        this._joystickActive = false;
-      }
-    };
+    window.addEventListener('keyup', e => {
+      this._keys[e.key] = false;
+    });
   }
 
   setJoystick(nx, ny) {
-    this._joystickActive = true;
-    this.input.throttle = Math.max(0, -ny);
-    this.input.brake    = Math.max(0,  ny);
-    this.input.steerL   = Math.max(0, -nx);
-    this.input.steerR   = Math.max(0,  nx);
+    this._joystickX = nx;
+    this._joystickY = ny;
   }
 
   setHandbrake(v) { this.input.handbrake = v ? 1 : 0; }
@@ -213,9 +197,29 @@ export class VanController {
     } catch (e) { }
   }
 
+  _buildInput() {
+    const k = this._keys;
+    const kThrottle = (k['ArrowUp']    || k['w'] || k['W']) ? 1 : 0;
+    const kBrake    = (k['ArrowDown']  || k['s'] || k['S']) ? 1 : 0;
+    const kSteerL   = (k['ArrowLeft']  || k['a'] || k['A']) ? 1 : 0;
+    const kSteerR   = (k['ArrowRight'] || k['d'] || k['D']) ? 1 : 0;
+    const kHB       = (k['Shift']      || k['e'] || k['E']) ? 1 : 0;
+
+    const jThrottle = Math.max(0, -this._joystickY);
+    const jBrake    = Math.max(0,  this._joystickY);
+    const jSteerL   = Math.max(0, -this._joystickX);
+    const jSteerR   = Math.max(0,  this._joystickX);
+
+    this.input.throttle  = Math.max(kThrottle,  jThrottle);
+    this.input.brake     = Math.max(kBrake,     jBrake);
+    this.input.steerL    = Math.max(kSteerL,    jSteerL);
+    this.input.steerR    = Math.max(kSteerR,    jSteerR);
+    this.input.handbrake = Math.max(this.input.handbrake, kHB);
+  }
+
   update(deltaMs) {
     const dt = Math.min(deltaMs / 1000, 0.05);
-    if (this._pollKeys) this._pollKeys();
+    this._buildInput();
 
     const { throttle, brake, steerL, steerR, handbrake } = this.input;
     const speedAbs = Math.abs(this.speed);
@@ -261,8 +265,8 @@ export class VanController {
 
     this.root.rotation.y = this.heading;
 
-    const fwdX   = Math.sin(this.heading);
-    const fwdZ   = Math.cos(this.heading);
+    const fwdX     = Math.sin(this.heading);
+    const fwdZ     = Math.cos(this.heading);
     const worldSpd = (this.speed / 3.6) * CFG.worldScale;
 
     this.root.position.x += fwdX * worldSpd * dt;
