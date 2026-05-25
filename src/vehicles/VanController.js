@@ -254,12 +254,14 @@ export class VanController {
     if (this.roadSystem) {
       // Lateral drift from joystick/keys
       const latInput = steerR - steerL;
-      this.lateral  += latInput * 9 * dt;
-      // Hard road boundary
-      this.lateral   = Math.max(-6, Math.min(6, this.lateral));
-      // Gentle centre return when no input
-      if (latInput === 0)
-        this.lateral *= Math.pow(0.97, dt * 60);
+      this.lateral  += latInput * 18 * dt;
+// Hard road boundary — matches ROAD_BOUNDARY 24
+this.lateral   = Math.max(-22, Math.min(22, this.lateral));
+// Gentle centre return when no input
+if (latInput === 0)
+  this.lateral *= Math.pow(0.97, dt * 60);
+// Off-road flag
+this.offRoad = Math.abs(this.lateral) > 20;
       // Off-road flag — clips roadside objects
       this.offRoad = Math.abs(this.lateral) > 5.5;
 
