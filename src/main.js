@@ -125,7 +125,7 @@ _roads = [];
     _camera = new ArcRotateCamera(
       'cam',
       -Math.PI / 2,   // alpha — behind van
-      1.1,            // beta  — 63° from top, looking down
+      0.8,            // beta  — 63° from top, looking down
       20,             // radius
       new Vector3(sx, sy + 1, sz),
       _scene
