@@ -268,8 +268,13 @@ this.offRoad = Math.abs(this.lateral) > 20;
       // Advance along spline
       const worldSpd = (this.speed / 3.6) * CFG.worldScale;
       this.roadDist += worldSpd * dt;
-      this.roadDist  = Math.max(0,
-        Math.min(this.roadDist, this.roadSystem.totalLength - 1));
+// Infinite loop — wrap around when road completes full circuit
+if (this.roadDist >= this.roadSystem.totalLength) {
+  this.roadDist -= this.roadSystem.totalLength;
+}
+if (this.roadDist < 0) {
+  this.roadDist += this.roadSystem.totalLength;
+}
 
       // Apply spline position + heading
       const { position, heading } =
