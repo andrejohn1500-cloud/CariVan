@@ -5,11 +5,10 @@ import {
   MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
-import { buildTerrain }         from './terrain/TerrainMesh.js';
-import { buildOcean }           from './terrain/OceanPlane.js';
-import { VanController }        from './vehicles/VanController.js';
-import { RoadSystem }           from './road/RoadSystem.js';
-import { buildArgyleAirport }   from './world/ArgyleAirport.js';
+import { buildTerrain }   from './terrain/TerrainMesh.js';
+import { buildOcean }     from './terrain/OceanPlane.js';
+import { VanController }  from './vehicles/VanController.js';
+import { RoadSystem }     from './road/RoadSystem.js';
 
 let _engine, _scene, _van, _camera;
 let _paused = false;
@@ -57,19 +56,19 @@ window._startCariVan = async function (vehicleType, missionType) {
     }
 
     _scene = new Scene(_engine);
-    _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1);
+    _scene.clearColor = new Color4(0.52, 0.78, 0.92, 1);
 
     // ── Lighting ──────────────────────────────────────────────────────────────
     setProgress(8, 'Setting up lighting…');
     const ambient = new HemisphericLight(
       'ambient', new Vector3(0, 1, 0), _scene);
-    ambient.intensity   = 1.1;
+    ambient.intensity   = 1.2;
     ambient.diffuse     = new Color3(1, 0.97, 0.88);
-    ambient.groundColor = new Color3(0.25, 0.45, 0.20);
+    ambient.groundColor = new Color3(0.28, 0.48, 0.22);
 
     const sun = new DirectionalLight(
-      'sun', new Vector3(-0.5, -1, -0.3), _scene);
-    sun.intensity = 1.2;
+      'sun', new Vector3(-0.4, -1, -0.2), _scene);
+    sun.intensity = 1.3;
 
     // ── Terrain ───────────────────────────────────────────────────────────────
     setProgress(15, 'Loading terrain…');
@@ -81,14 +80,14 @@ window._startCariVan = async function (vehicleType, missionType) {
     buildOcean(_scene);
 
     // ── Road ─────────────────────────────────────────────────────────────────
-    setProgress(50, 'Building island road…');
+    setProgress(52, 'Building island road…');
     const roadSystem = new RoadSystem(_scene, terrain);
 
-    // ── Van spawn ─────────────────────────────────────────────────────────────
-    setProgress(70, 'Spawning van…');
+    // ── Van spawn — Kingstown ─────────────────────────────────────────────────
+    setProgress(72, 'Spawning van…');
     const sx = 5278, sz = -8550;
     const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
-    const sy   = Math.max(rawH, 20) + 3;
+    const sy   = Math.max(rawH, 5) + 2;
 
     _van = new VanController(
       _scene, terrain,
@@ -99,21 +98,21 @@ window._startCariVan = async function (vehicleType, missionType) {
     window.gameVan = _van;
 
     // ── Camera ────────────────────────────────────────────────────────────────
-    setProgress(85, 'Setting up camera…');
+    setProgress(88, 'Setting up camera…');
     _camera = new ArcRotateCamera(
       'cam',
       Math.PI / 2,
-      0.72,
-      150,
+      0.68,
+      130,
       new Vector3(sx, sy + 1, sz),
       _scene
     );
     _camera.minZ             = 0.1;
     _camera.maxZ             = 80000;
-    _camera.lowerBetaLimit   = 0.25;
-    _camera.upperBetaLimit   = 1.45;
+    _camera.lowerBetaLimit   = 0.20;
+    _camera.upperBetaLimit   = 1.40;
     _camera.lowerRadiusLimit = 40;
-    _camera.upperRadiusLimit = 300;
+    _camera.upperRadiusLimit = 280;
     _camera.attachControl(canvas, true);
 
     // ── Camera follow + manual pan ────────────────────────────────────────────
@@ -177,12 +176,6 @@ window._startCariVan = async function (vehicleType, missionType) {
       hideLoading();
       if (window.SM) window.SM.onGameReady();
     }, 800);
-
-    // ── Airport loads after game running — deferred ───────────────────────────
-    setTimeout(() => {
-      try { buildArgyleAirport(_scene, terrain); }
-      catch (e) { console.warn('Airport failed:', e.message); }
-    }, 4000);
 
   } catch (err) {
     console.error('CariVan failed:', err);
