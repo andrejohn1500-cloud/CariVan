@@ -1,11 +1,8 @@
 import {
   MeshBuilder, StandardMaterial, Color3,
-  Vector3, Animation, TransformNode
+  Vector3, Animation, TransformNode, SceneLoader
 } from '@babylonjs/core';
-
-// Argyle International Airport
-// World position: east coast, z ≈ -7400, x ≈ 6800
-// Road passes to the west — airport visible on the right going south
+import '@babylonjs/loaders/glTF';
 
 const AIRPORT_X = 6800;
 const AIRPORT_Z = -7400;
@@ -23,11 +20,11 @@ export function buildArgyleAirport(scene, terrain) {
   _buildLandingPlane(scene, root);
   _buildPerimeterFence(scene, root);
   _buildWindsock(scene, root);
+  _buildRunwayLights(scene, root);
 
   return root;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function _mat(name, hex, scene, spec = 0.1, emissive = null) {
   const m = new StandardMaterial(name, scene);
   const r = parseInt(hex.slice(1,3),16)/255;
@@ -47,165 +44,203 @@ function _box(name, w, h, d, x, y, z, mat, parent, scene) {
   return b;
 }
 
+// ── Load Boeing GLB ───────────────────────────────────────────────────────────
+function _loadPlaneGLB(name, file, x, y, z, rotY, scale, scene, parent) {
+  const node = new TransformNode(name, scene);
+  node.position.set(x, y, z);
+  node.rotation.y = rotY;
+  node.scaling = new Vector3(scale, scale, scale);
+  node.parent = parent;
+
+  SceneLoader.ImportMeshAsync('', './assets/', file, scene)
+    .then(result => {
+      result.meshes.forEach(m => {
+        m.parent = node;
+        m.receiveShadows = true;
+      });
+      console.log(name + ' loaded ✅');
+    })
+    .catch(err => {
+      console.warn(name + ' GLB failed, using fallback:', err.message);
+      _buildFallbackPlane(name + '_fb', scene, node);
+    });
+
+  return node;
+}
+
+// Simple fallback if GLB fails
+function _buildFallbackPlane(name, scene, parent) {
+  const mat = new StandardMaterial(name+'_mat', scene);
+  mat.diffuseColor = new Color3(0.9, 0.9, 0.88);
+
+  const fuse = MeshBuilder.CreateCylinder(name+'_fuse', {
+    height: 380, diameterTop: 35, diameterBottom: 28, tessellation: 16
+  }, scene);
+  fuse.rotation.x = Math.PI / 2;
+  fuse.parent = parent;
+  fuse.material = mat;
+
+  [-1, 1].forEach(s => {
+    const wing = MeshBuilder.CreateBox(name+'_wing'+s, {
+      width: 260, height: 5, depth: 75
+    }, scene);
+    wing.position.set(s * 130, -3, 20);
+    wing.parent = parent;
+    wing.material = mat;
+  });
+
+  const tail = MeshBuilder.CreateBox(name+'_tail', {
+    width: 4, height: 75, depth: 85
+  }, scene);
+  tail.position.set(0, 38, 170);
+  tail.parent = parent;
+  tail.material = mat;
+}
+
 // ── Runway ────────────────────────────────────────────────────────────────────
 function _buildRunway(scene, root) {
-  // Main runway — 2800m long, 45m wide
-  const rw = MeshBuilder.CreateBox('runway', {
-    width: 180, height: 1, depth: 2800
-  }, scene);
-  rw.position.set(0, 0.5, 0);
-  rw.parent = root;
-  rw.material = _mat('rwMat', '#1a1a1a', scene, 0.04);
+  const rw = _box('runway', 200, 1, 3000,
+    0, 0.5, 0, _mat('rwMat', '#1a1a1a', scene, 0.04), root, scene);
 
-  // Runway centre line dashes
-  for (let i = -1300; i < 1300; i += 120) {
-    const dash = MeshBuilder.CreateBox('rwDash_'+i, {
-      width: 2, height: 1.2, depth: 60
-    }, scene);
-    dash.position.set(0, 0.7, i);
-    dash.parent = root;
-    dash.material = _mat('rwDashMat', '#ffffff', scene, 0.1,
-      new Color3(0.2, 0.2, 0.2));
+  // Centre dashes
+  for (let i = -1400; i < 1400; i += 120) {
+    const dash = _box('rwDash_'+i, 2.5, 1.2, 65,
+      0, 0.7, i, _mat('rwDashMat', '#ffffff', scene, 0.1,
+        new Color3(0.2, 0.2, 0.2)), root, scene);
   }
 
-  // Runway threshold markings — both ends
+  // Threshold markings both ends
   [-1, 1].forEach(end => {
     for (let lane = -3; lane <= 3; lane++) {
-      const tm = MeshBuilder.CreateBox('thresh_'+end+'_'+lane, {
-        width: 10, height: 1.2, depth: 45
-      }, scene);
-      tm.position.set(lane * 22, 0.7, end * 1320);
-      tm.parent = root;
-      tm.material = _mat('threshMat', '#ffffff', scene, 0.1);
+      _box('thresh_'+end+'_'+lane, 12, 1.2, 50,
+        lane * 24, 0.7, end * 1380,
+        _mat('threshMat', '#ffffff', scene, 0.1), root, scene);
     }
   });
 
   // Taxiway
-  const taxi = MeshBuilder.CreateBox('taxiway', {
-    width: 600, height: 0.8, depth: 60
-  }, scene);
-  taxi.position.set(200, 0.4, -400);
-  taxi.parent = root;
-  taxi.material = _mat('taxiMat', '#222222', scene, 0.03);
+  _box('taxiway', 650, 0.8, 65,
+    220, 0.4, -450,
+    _mat('taxiMat', '#222222', scene, 0.03), root, scene);
 
-  // Taxiway yellow centre line
-  const taxiLine = MeshBuilder.CreateBox('taxiLine', {
-    width: 600, height: 1.0, depth: 3
-  }, scene);
-  taxiLine.position.set(200, 0.9, -400);
-  taxiLine.parent = root;
-  taxiLine.material = _mat('taxiLineMat', '#f0c800', scene, 0.1,
-    new Color3(0.3, 0.25, 0));
+  // Taxiway yellow line
+  _box('taxiLine', 650, 1.0, 3,
+    220, 0.9, -450,
+    _mat('taxiLineMat', '#f0c800', scene, 0.1,
+      new Color3(0.3, 0.25, 0)), root, scene);
 
-  // Apron / stand area
-  const apron = MeshBuilder.CreateBox('apron', {
-    width: 700, height: 0.6, depth: 400
-  }, scene);
-  apron.position.set(250, 0.3, -600);
-  apron.parent = root;
-  apron.material = _mat('apronMat', '#2a2a2a', scene, 0.03);
+  // Apron
+  _box('apron', 750, 0.6, 450,
+    280, 0.3, -650,
+    _mat('apronMat', '#2a2a2a', scene, 0.03), root, scene);
+
+  // Runway numbers — painted boxes
+  [-1380, 1380].forEach((z, idx) => {
+    _box('rnum_'+idx, 30, 1.2, 45,
+      0, 0.8, z,
+      _mat('rnumMat', '#ffffff', scene, 0.1,
+        new Color3(0.15,0.15,0.15)), root, scene);
+  });
 }
 
-// ── Terminal building ─────────────────────────────────────────────────────────
+// ── Terminal ──────────────────────────────────────────────────────────────────
 function _buildTerminal(scene, root) {
-  // Main terminal body
-  const term = _box('terminal', 600, 80, 180,
-    250, 40, -750,
+  // Main body
+  _box('terminal', 650, 85, 190,
+    270, 42, -780,
     _mat('termMat', '#d8cfc0', scene, 0.15), root, scene);
 
-  // Roof overhang
-  const roof = _box('termRoof', 640, 8, 200,
-    250, 84, -750,
+  // Roof
+  _box('termRoof', 690, 9, 210,
+    270, 88, -780,
     _mat('roofMat', '#8a7a60', scene, 0.08), root, scene);
 
-  // Glass facade — departure hall
-  const glass = _box('termGlass', 580, 60, 8,
-    250, 35, -845,
+  // Glass facade
+  const gfb = _box('termGlass', 620, 62, 8,
+    270, 36, -876,
     _mat('glassMat', '#6090a8', scene, 0.8), root, scene);
-  const gMat = scene.getMaterialByName('glassMat');
-  if (gMat) gMat.alpha = 0.7;
+  const gm = scene.getMaterialByName('glassMat');
+  if (gm) gm.alpha = 0.72;
 
-  // Departure gates — jetways
-  for (let g = 0; g < 4; g++) {
-    const gx = -220 + g * 150;
-    // Gate building
-    _box('gate_'+g, 80, 50, 120,
-      gx, 25, -700,
+  // Gates
+  for (let g = 0; g < 5; g++) {
+    const gx = -280 + g * 140;
+    _box('gate_'+g, 85, 52, 130,
+      gx, 26, -720,
       _mat('gateMat'+g, '#cfc8b8', scene, 0.1), root, scene);
-    // Jetway arm
-    _box('jetway_'+g, 8, 12, 80,
-      gx + 20, 18, -660,
+    // Jetway
+    _box('jetway_'+g, 8, 13, 90,
+      gx + 22, 19, -666,
       _mat('jetwayMat'+g, '#909090', scene, 0.2), root, scene);
   }
 
-  // Check-in hall annex
-  _box('checkin', 200, 55, 100,
-    550, 27, -720,
+  // Check-in annex
+  _box('checkin', 220, 58, 110,
+    580, 29, -750,
     _mat('checkinMat', '#d0c8b8', scene, 0.12), root, scene);
 
-  // Terminal sign
-  const sign = _box('termSign', 300, 20, 5,
-    250, 90, -846,
-    _mat('signMat', '#003366', scene, 0.1,
-      new Color3(0, 0.2, 0.5)), root, scene);
-
-  // Covered walkway canopy
-  for (let c = 0; c < 6; c++) {
-    const cx = -220 + c * 100;
-    _box('canopy_'+c, 8, 4, 60,
-      cx, 55, -780,
+  // Canopy pillars
+  for (let c = 0; c < 7; c++) {
+    const cx = -280 + c * 96;
+    _box('canopy_'+c, 8, 5, 65,
+      cx, 58, -810,
       _mat('canopyMat', '#7a6a50', scene, 0.05), root, scene);
-    // Support pillars
-    _box('pillar_'+c, 6, 50, 6,
-      cx, 25, -790,
+    _box('pillar_'+c, 7, 52, 7,
+      cx, 26, -820,
       _mat('pillarMat', '#c0b8a8', scene, 0.1), root, scene);
   }
+
+  // Airport name sign
+  _box('airportSign', 320, 22, 5,
+    270, 95, -876,
+    _mat('signMat', '#003366', scene, 0.1,
+      new Color3(0, 0.18, 0.45)), root, scene);
+
+  // Departure board glow strip
+  _box('depBoard', 180, 18, 4,
+    270, 55, -877,
+    _mat('depMat', '#001133', scene, 0.1,
+      new Color3(0.0, 0.3, 0.8)), root, scene);
 }
 
-// ── Control tower ─────────────────────────────────────────────────────────────
+// ── Control Tower ─────────────────────────────────────────────────────────────
 function _buildTower(scene, root) {
-  // Tower base
-  _box('towerBase', 40, 20, 40,
-    500, 10, -820,
+  _box('towerBase', 45, 22, 45,
+    520, 11, -850,
     _mat('towerBaseMat', '#c8c0b0', scene, 0.1), root, scene);
 
-  // Tower shaft
-  _box('towerShaft', 28, 220, 28,
-    500, 130, -820,
+  _box('towerShaft', 30, 240, 30,
+    520, 142, -850,
     _mat('towerShaftMat', '#d0c8b8', scene, 0.12), root, scene);
 
-  // Tower cab — glass control room
-  const cab = _box('towerCab', 55, 35, 55,
-    500, 252, -820,
+  // Cab
+  _box('towerCab', 58, 38, 58,
+    520, 280, -850,
     _mat('towerCabMat', '#5888a0', scene, 0.9,
-      new Color3(0.05, 0.15, 0.25)), root, scene);
-
-  // Cab glass alpha
+      new Color3(0.04, 0.14, 0.22)), root, scene);
   const cabMat = scene.getMaterialByName('towerCabMat');
-  if (cabMat) cabMat.alpha = 0.75;
+  if (cabMat) cabMat.alpha = 0.72;
 
   // Roof cap
-  _box('towerRoof', 60, 8, 60,
-    500, 272, -820,
+  _box('towerRoof', 65, 9, 65,
+    520, 302, -850,
     _mat('towerRoofMat', '#404040', scene, 0.05), root, scene);
 
   // Antenna
   const ant = MeshBuilder.CreateCylinder('antenna', {
-    height: 60, diameter: 3, tessellation: 8
+    height: 65, diameter: 3, tessellation: 8
   }, scene);
-  ant.position.set(500, 310, -820);
+  ant.position.set(520, 338, -850);
   ant.parent = root;
   ant.material = _mat('antMat', '#c0c0c0', scene, 0.5);
 
-  // Flashing red beacon on antenna tip
-  const beacon = MeshBuilder.CreateSphere('beacon', { diameter: 8 }, scene);
-  beacon.position.set(500, 342, -820);
+  // Flashing beacon
+  const beacon = MeshBuilder.CreateSphere('beacon', { diameter: 9 }, scene);
+  beacon.position.set(520, 372, -850);
   beacon.parent = root;
-  const bMat = _mat('beaconMat', '#ff2200', scene, 0.1,
+  beacon.material = _mat('beaconMat', '#ff2200', scene, 0.1,
     new Color3(1, 0.1, 0));
-  beacon.material = bMat;
 
-  // Beacon flash animation
   const flash = new Animation('beaconFlash', 'material.emissiveColor.r', 60,
     Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
   flash.setKeys([
@@ -216,340 +251,262 @@ function _buildTower(scene, root) {
   ]);
   beacon.animations = [flash];
   scene.beginAnimation(beacon, 0, 60, true);
+
+  // Secondary white strobe
+  const strobe = MeshBuilder.CreateSphere('strobe', { diameter: 6 }, scene);
+  strobe.position.set(520, 365, -850);
+  strobe.parent = root;
+  strobe.material = _mat('strobeMat', '#ffffff', scene, 0.1,
+    new Color3(1, 1, 1));
+  const sf = new Animation('strobeFlash', 'material.emissiveColor.r', 60,
+    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
+  sf.setKeys([
+    { frame:  0, value: 0.0 },
+    { frame:  3, value: 1.0 },
+    { frame:  6, value: 0.0 },
+    { frame: 60, value: 0.0 },
+  ]);
+  strobe.animations = [sf];
+  scene.beginAnimation(strobe, 0, 60, true);
 }
 
-// ── Parking lot ───────────────────────────────────────────────────────────────
+// ── Parking Lot ───────────────────────────────────────────────────────────────
 function _buildParkingLot(scene, root) {
-  // Lot surface
-  const lot = _box('parking', 500, 0.5, 280,
-    -200, 0.3, -820,
+  _box('parking', 550, 0.5, 300,
+    -220, 0.3, -840,
     _mat('lotMat', '#282828', scene, 0.03), root, scene);
 
-  // Parking bays — white lines
-  for (let row = 0; row < 3; row++) {
+  // Bay lines
+  for (let row = 0; row < 4; row++) {
     for (let col = 0; col < 10; col++) {
-      const lx = -420 + col * 45;
-      const lz = -720 + row * 80;
-      // Bay line left
-      _box('bayL_'+row+'_'+col, 2, 1, 50,
-        lx, 1, lz,
+      _box('bay_'+row+'_'+col, 2, 1, 52,
+        -440 + col * 48, 1, -720 + row * 85,
         _mat('bayMat', '#e0e0e0', scene, 0.1), root, scene);
     }
   }
 
-  // Parked cars in lot — simple boxes
-  const carColors = ['#c0392b','#2980b9','#27ae60','#f39c12','#8e44ad','#16a085'];
-  for (let i = 0; i < 18; i++) {
-    const row = Math.floor(i / 6);
-    const col = i % 6;
-    const cx  = -400 + col * 70;
-    const cz  = -730 + row * 80;
-    const car = MeshBuilder.CreateBox('lotCar_'+i, {
-      width: 35, height: 22, depth: 60
-    }, scene);
-    car.position.set(cx, 11, cz);
-    car.parent = root;
-    car.material = _mat('lotCarMat'+i, carColors[i % carColors.length], scene, 0.2);
-    // Roof
-    const carRoof = MeshBuilder.CreateBox('lotCarRoof_'+i, {
-      width: 30, height: 14, depth: 35
-    }, scene);
-    carRoof.position.set(0, 18, -5);
-    carRoof.parent = car;
-    carRoof.material = car.material;
-  }
+  // Cars from real GLBs
+  const lotCars = [
+    { x: -420, z: -730, file: '2005_toyota_corolla_luxel.glb',        scale: 0.9 },
+    { x: -370, z: -730, file: '2023_toyota_rav4_hybrid.glb',           scale: 0.9 },
+    { x: -320, z: -730, file: 'mitsubishi_lancer_evolution_6___www.vecarz.com.glb', scale: 0.9 },
+    { x: -270, z: -730, file: '2005_toyota_corolla_luxel.glb',         scale: 0.9 },
+    { x: -420, z: -810, file: 'honda_civic_malaysia_police_car.glb',   scale: 0.9 },
+    { x: -370, z: -810, file: '2023_toyota_rav4_hybrid.glb',           scale: 0.9 },
+    { x: -320, z: -810, file: 'nissan_caravan_detailed_3d_van_model_.glb', scale: 1.0 },
+    { x: -270, z: -810, file: 'truck_toyota_corsa_b.glb',              scale: 1.0 },
+  ];
 
-  // Entrance road to parking
-  _box('lotEntrance', 60, 0.5, 120,
-    -450, 0.4, -660,
-    _mat('entranceMat', '#1a1a1a', scene, 0.02), root, scene);
+  lotCars.forEach((cfg, i) => {
+    const node = new TransformNode('lotCar_'+i, scene);
+    node.position.set(cfg.x, 1, cfg.z);
+    node.rotation.y = Math.PI / 2 + (Math.random() - 0.5) * 0.15;
+    node.scaling = new Vector3(cfg.scale, cfg.scale, cfg.scale);
+    node.parent = root;
+    SceneLoader.ImportMeshAsync('', './assets/', cfg.file, scene)
+      .then(r => r.meshes.forEach(m => { m.parent = node; m.receiveShadows = true; }))
+      .catch(() => {});
+  });
 
-  // Street lights in lot
-  for (let l = 0; l < 4; l++) {
-    const lx = -380 + l * 120;
-    // Pole
+  // Street lights
+  for (let l = 0; l < 5; l++) {
+    const lx = -420 + l * 110;
     const pole = MeshBuilder.CreateCylinder('lotPole_'+l, {
-      height: 80, diameter: 4, tessellation: 8
+      height: 90, diameter: 4, tessellation: 8
     }, scene);
-    pole.position.set(lx, 40, -680);
+    pole.position.set(lx, 45, -700);
     pole.parent = root;
     pole.material = _mat('poleMat', '#808080', scene, 0.3);
-    // Light head
-    _box('lotLight_'+l, 20, 6, 20,
-      lx, 82, -680,
+
+    _box('lotLight_'+l, 22, 7, 22,
+      lx, 92, -700,
       _mat('lightMat'+l, '#fffde0', scene, 0.1,
-        new Color3(0.8, 0.8, 0.4)), root, scene);
+        new Color3(0.7, 0.7, 0.35)), root, scene);
   }
+
+  // Entrance road
+  _box('lotEntrance', 65, 0.5, 130,
+    -470, 0.4, -678,
+    _mat('entranceMat', '#1a1a1a', scene, 0.02), root, scene);
 }
 
-// ── Ground planes ─────────────────────────────────────────────────────────────
+// ── Ground Planes — Boeing GLBs ───────────────────────────────────────────────
 function _buildGroundPlanes(scene, root) {
-  const planeConfigs = [
-    { x:   0, z: -500, rot: 0,           livery: '#e8e8e8', name: 'SVG Air'    },
-    { x:  80, z: -520, rot: 0.05,        livery: '#ddeeff', name: 'LIAT'       },
-    { x: -80, z: -480, rot: -0.04,       livery: '#fff0e0', name: 'Caribbean'  },
-    { x:   0, z:  600, rot: Math.PI,     livery: '#e8e8e8', name: 'Parked'     },
-  ];
+  // Boeing 787 parked at gate — Singapore Airlines livery
+  _loadPlaneGLB(
+    'plane_gate_1',
+    'boeing_787-9_singapore_airlines.glb',
+    -60, 1, -520,
+    0, 0.012,
+    scene, root
+  );
 
-  planeConfigs.forEach((cfg, i) => {
-    _buildPlaneModel('gndPlane_'+i, cfg.x, 1, cfg.z,
-      cfg.rot, cfg.livery, scene, root, false);
-  });
+  // Boeing E-767 parked further down apron
+  _loadPlaneGLB(
+    'plane_gate_2',
+    'boeing_e-767_-_.free (1).glb',
+    80, 1, -540,
+    0.08, 0.012,
+    scene, root
+  );
+
+  // Third plane taxiing — slightly angled
+  _loadPlaneGLB(
+    'plane_taxi',
+    'boeing_787-9_singapore_airlines.glb',
+    180, 1, -400,
+    -0.4, 0.012,
+    scene, root
+  );
 }
 
-// ── Landing plane ─────────────────────────────────────────────────────────────
+// ── Landing Plane — animated approach ────────────────────────────────────────
 function _buildLandingPlane(scene, root) {
-  const plane = _buildPlaneModel('landingPlane', -800, 400, -1800,
-    0, '#e8f4ff', scene, root, true);
+  const node = _loadPlaneGLB(
+    'landing_plane',
+    'boeing_787-9_singapore_airlines.glb',
+    -900, 420, -1900,
+    0, 0.014,
+    scene, root
+  );
 
-  // Approach animation — descend and roll along runway
-  const posAnim = new Animation('approach', 'position.y', 30,
+  // Smooth approach descent
+  const posY = new Animation('approachY', 'position.y', 30,
     Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  posAnim.setKeys([
-    { frame:   0, value: 400  },
-    { frame: 180, value:  80  },
-    { frame: 300, value:   2  },
-    { frame: 480, value:   2  },
-    { frame: 600, value: 400  },
+  posY.setKeys([
+    { frame:   0, value: 420  },
+    { frame: 160, value:  90  },
+    { frame: 280, value:   2  },
+    { frame: 440, value:   2  },
+    { frame: 560, value: 420  },
   ]);
 
-  const zAnim = new Animation('approachZ', 'position.z', 30,
+  const posZ = new Animation('approachZ', 'position.z', 30,
     Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  zAnim.setKeys([
-    { frame:   0, value: -1800 },
-    { frame: 180, value: -1000 },
-    { frame: 300, value:  -200 },
-    { frame: 480, value:  1400 },
-    { frame: 600, value: -1800 },
+  posZ.setKeys([
+    { frame:   0, value: -1900 },
+    { frame: 160, value: -1000 },
+    { frame: 280, value:  -100 },
+    { frame: 440, value:  1500 },
+    { frame: 560, value: -1900 },
   ]);
 
-  const xAnim = new Animation('approachX', 'position.x', 30,
+  const posX = new Animation('approachX', 'position.x', 30,
     Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  xAnim.setKeys([
-    { frame:   0, value: -800 },
-    { frame: 300, value:    0 },
-    { frame: 480, value:    0 },
-    { frame: 600, value: -800 },
+  posX.setKeys([
+    { frame:   0, value: -900 },
+    { frame: 280, value:    0 },
+    { frame: 440, value:    0 },
+    { frame: 560, value: -900 },
   ]);
 
-  // Pitch down on approach
-  const pitchAnim = new Animation('pitch', 'rotation.x', 30,
+  // Nose pitch down on approach
+  const pitch = new Animation('pitch', 'rotation.x', 30,
     Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  pitchAnim.setKeys([
-    { frame:   0, value:  0.0  },
-    { frame: 180, value:  0.12 },
-    { frame: 300, value:  0.0  },
-    { frame: 480, value:  0.0  },
-    { frame: 600, value:  0.0  },
+  pitch.setKeys([
+    { frame:   0, value:  0.00  },
+    { frame: 160, value:  0.10  },
+    { frame: 280, value:  0.00  },
+    { frame: 440, value:  0.00  },
+    { frame: 560, value:  0.00  },
   ]);
 
-  plane.animations = [posAnim, zAnim, xAnim, pitchAnim];
-  scene.beginAnimation(plane, 0, 600, true);
+  // Wing gentle rock on approach
+  const roll = new Animation('roll', 'rotation.z', 30,
+    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
+  roll.setKeys([
+    { frame:   0, value:  0.00  },
+    { frame:  60, value:  0.03  },
+    { frame: 120, value: -0.02  },
+    { frame: 200, value:  0.01  },
+    { frame: 280, value:  0.00  },
+    { frame: 560, value:  0.00  },
+  ]);
+
+  node.animations = [posY, posZ, posX, pitch, roll];
+  scene.beginAnimation(node, 0, 560, true);
 }
 
-// ── Shared plane builder ──────────────────────────────────────────────────────
-function _buildPlaneModel(name, x, y, z, rotY, livery, scene, parent, animated) {
-  const planeRoot = new TransformNode(name, scene);
-  planeRoot.position.set(x, y, z);
-  planeRoot.rotation.y = rotY;
-  planeRoot.parent = parent;
-
-  const livMat  = _mat(name+'_liv',  livery,   scene, 0.2);
-  const darkMat = _mat(name+'_dark', '#222222', scene, 0.05);
-  const glasMat = _mat(name+'_glas', '#8ab0c8', scene, 0.8);
-  if (glasMat) glasMat.alpha = 0.7;
-  const engMat  = _mat(name+'_eng',  '#505050', scene, 0.3);
-  const redMat  = _mat(name+'_red',  '#cc2200', scene, 0.1);
-
-  // Fuselage
-  const fuse = MeshBuilder.CreateCylinder(name+'_fuse', {
-    height: 380, diameterTop: 38, diameterBottom: 28,
-    tessellation: 16
-  }, scene);
-  fuse.rotation.x = Math.PI / 2;
-  fuse.position.set(0, 0, 0);
-  fuse.parent = planeRoot;
-  fuse.material = livMat;
-
-  // Nose cone
-  const nose = MeshBuilder.CreateCylinder(name+'_nose', {
-    height: 60, diameterTop: 0, diameterBottom: 28, tessellation: 16
-  }, scene);
-  nose.rotation.x = Math.PI / 2;
-  nose.position.set(0, 0, -220);
-  nose.parent = planeRoot;
-  nose.material = livMat;
-
-  // Cockpit windows
-  _box(name+'_cockpit', 20, 14, 4,
-    0, 12, -200, glasMat, planeRoot, scene);
-
-  // Main wings
-  [-1, 1].forEach(side => {
-    const wing = MeshBuilder.CreateBox(name+'_wing_'+side, {
-      width: 280, height: 6, depth: 80
-    }, scene);
-    wing.position.set(side * 140, -4, 20);
-    wing.parent = planeRoot;
-    wing.material = livMat;
-
-    // Wing tip
-    const tip = MeshBuilder.CreateBox(name+'_tip_'+side, {
-      width: 30, height: 14, depth: 20
-    }, scene);
-    tip.position.set(side * 18, 8, 0);
-    tip.parent = wing;
-    tip.material = livMat;
-
-    // Engine pod
-    const eng = MeshBuilder.CreateCylinder(name+'_eng_'+side, {
-      height: 80, diameter: 28, tessellation: 16
-    }, scene);
-    eng.rotation.x = Math.PI / 2;
-    eng.position.set(side * 90, -14, 10);
-    eng.parent = planeRoot;
-    eng.material = engMat;
-
-    // Engine intake
-    const intake = MeshBuilder.CreateCylinder(name+'_intake_'+side, {
-      height: 8, diameterTop: 28, diameterBottom: 22, tessellation: 16
-    }, scene);
-    intake.rotation.x = Math.PI / 2;
-    intake.position.set(side * 90, -14, -28);
-    intake.parent = planeRoot;
-    intake.material = darkMat;
-
-    // Nav light
-    const nav = MeshBuilder.CreateSphere(name+'_nav_'+side, { diameter: 6 }, scene);
-    nav.position.set(side * 155, -2, 10);
-    nav.parent = planeRoot;
-    nav.material = _mat(name+'_nav_mat_'+side,
-      side < 0 ? '#ff4444' : '#44ff44', scene, 0.1,
-      side < 0 ? new Color3(0.8, 0, 0) : new Color3(0, 0.8, 0));
-  });
-
-  // Tail fin
-  const tail = MeshBuilder.CreateBox(name+'_tail', {
-    width: 5, height: 80, depth: 90
-  }, scene);
-  tail.position.set(0, 40, 175);
-  tail.parent = planeRoot;
-  tail.material = livMat;
-
-  // Horizontal stabilisers
-  [-1, 1].forEach(side => {
-    const stab = MeshBuilder.CreateBox(name+'_stab_'+side, {
-      width: 120, height: 5, depth: 50
-    }, scene);
-    stab.position.set(side * 60, 30, 170);
-    stab.parent = planeRoot;
-    stab.material = livMat;
-  });
-
-  // Fuselage stripe
-  const stripe = MeshBuilder.CreateBox(name+'_stripe', {
-    width: 6, height: 8, depth: 360
-  }, scene);
-  stripe.position.set(0, 16, 0);
-  stripe.parent = planeRoot;
-  stripe.material = redMat;
-
-  // Windows row
-  for (let w = -7; w <= 7; w++) {
-    const win = MeshBuilder.CreateBox(name+'_win_'+w, {
-      width: 4, height: 10, depth: 12
-    }, scene);
-    win.position.set(20, 10, w * 24);
-    win.parent = planeRoot;
-    win.material = glasMat;
-  }
-
-  // Landing gear — only visible when near ground
-  if (!animated) {
-    [-1, 1].forEach(side => {
-      const gear = MeshBuilder.CreateCylinder(name+'_gear_'+side, {
-        height: 30, diameter: 6, tessellation: 8
+// ── Runway Edge Lights ────────────────────────────────────────────────────────
+function _buildRunwayLights(scene, root) {
+  for (let z = -1380; z <= 1380; z += 120) {
+    [-105, 105].forEach(x => {
+      const light = MeshBuilder.CreateSphere('rwLight_'+x+'_'+z, {
+        diameter: 4
       }, scene);
-      gear.position.set(side * 60, -22, 20);
-      gear.parent = planeRoot;
-      gear.material = darkMat;
-
-      const wheel = MeshBuilder.CreateCylinder(name+'_wheel_'+side, {
-        height: 10, diameter: 18, tessellation: 12
-      }, scene);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(0, -16, 0);
-      wheel.parent = gear;
-      wheel.material = darkMat;
+      light.position.set(x, 2, z);
+      light.parent = root;
+      light.material = _mat('rwLightMat_'+x+'_'+z,
+        '#ffffaa', scene, 0.1, new Color3(0.8, 0.8, 0.3));
     });
-
-    // Nose gear
-    const nGear = MeshBuilder.CreateCylinder(name+'_ngear', {
-      height: 24, diameter: 5, tessellation: 8
-    }, scene);
-    nGear.position.set(0, -18, -160);
-    nGear.parent = planeRoot;
-    nGear.material = darkMat;
   }
 
-  return planeRoot;
+  // Threshold red lights
+  [-1, 1].forEach(end => {
+    for (let x = -90; x <= 90; x += 22) {
+      const tl = MeshBuilder.CreateSphere('thLight_'+end+'_'+x, {
+        diameter: 5
+      }, scene);
+      tl.position.set(x, 2, end * 1390);
+      tl.parent = root;
+      tl.material = _mat('thLightMat_'+end+'_'+x,
+        '#ff3300', scene, 0.1, new Color3(0.9, 0.1, 0));
+    }
+  });
+
+  // PAPI approach lights — 4 red/white boxes left of runway
+  for (let p = 0; p < 4; p++) {
+    const papi = _box('papi_'+p, 8, 5, 8,
+      -140, 3, -600 + p * 18,
+      _mat('papiMat_'+p, p < 2 ? '#ff2200' : '#ffffff', scene, 0.1,
+        p < 2
+          ? new Color3(0.9, 0.05, 0)
+          : new Color3(0.9, 0.9, 0.9)),
+      root, scene);
+  }
 }
 
-// ── Perimeter fence ───────────────────────────────────────────────────────────
+// ── Perimeter Fence ───────────────────────────────────────────────────────────
 function _buildPerimeterFence(scene, root) {
-  const segments = [
-    { x: -500, z: -1400, w: 1000, d: 4 },
-    { x: -500, z:  800,  w: 1000, d: 4 },
-    { x: -996, z: -300,  w: 4,    d: 2200 },
-    { x:  496, z: -300,  w: 4,    d: 2200 },
-  ];
-  segments.forEach((s, i) => {
-    _box('fence_'+i, s.w, 18, s.d,
-      s.x, 9, s.z,
+  [
+    { x: -520, z: -1450, w: 1100, d: 4  },
+    { x: -520, z:   850, w: 1100, d: 4  },
+    { x:-1066, z:  -300, w: 4,    d: 2300 },
+    { x:  546, z:  -300, w: 4,    d: 2300 },
+  ].forEach((s, i) => {
+    _box('fence_'+i, s.w, 20, s.d,
+      s.x, 10, s.z,
       _mat('fenceMat', '#808878', scene, 0.05), root, scene);
   });
-
-  // Fence posts
-  for (let p = -9; p <= 9; p++) {
-    _box('fencePost_top_'+p, 5, 22, 5,
-      p * 100, 11, -1400,
-      _mat('postMat', '#909080', scene, 0.1), root, scene);
-    _box('fencePost_bot_'+p, 5, 22, 5,
-      p * 100, 11,  800,
-      _mat('postMat2', '#909080', scene, 0.1), root, scene);
-  }
 }
 
 // ── Windsock ──────────────────────────────────────────────────────────────────
 function _buildWindsock(scene, root) {
-  // Pole
   const pole = MeshBuilder.CreateCylinder('wsPole', {
-    height: 120, diameter: 4, tessellation: 8
+    height: 130, diameter: 4, tessellation: 8
   }, scene);
-  pole.position.set(-150, 60, -1300);
+  pole.position.set(-160, 65, -1340);
   pole.parent = root;
   pole.material = _mat('wsPoleMat', '#c0c0c0', scene, 0.4);
 
-  // Sock — orange/white cylinder
   const sock = MeshBuilder.CreateCylinder('wsSock', {
-    height: 50, diameterTop: 8,
-    diameterBottom: 22, tessellation: 12
+    height: 55, diameterTop: 9,
+    diameterBottom: 24, tessellation: 12
   }, scene);
-  sock.position.set(-150, 126, -1300);
+  sock.position.set(-160, 135, -1340);
   sock.rotation.z = Math.PI / 4;
   sock.parent = root;
   sock.material = _mat('wsSockMat', '#ff6600', scene, 0.1,
-    new Color3(0.3, 0.1, 0));
+    new Color3(0.25, 0.08, 0));
 
-  // Gentle sway animation
   const sway = new Animation('wsSway', 'rotation.z', 30,
     Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
   sway.setKeys([
-    { frame:  0, value:  Math.PI / 4       },
-    { frame: 40, value:  Math.PI / 4 + 0.3 },
-    { frame: 80, value:  Math.PI / 4 - 0.1 },
-    { frame: 120,value:  Math.PI / 4       },
+    { frame:   0, value: Math.PI/4       },
+    { frame:  45, value: Math.PI/4 + 0.3 },
+    { frame:  90, value: Math.PI/4 - 0.1 },
+    { frame: 135, value: Math.PI/4       },
   ]);
   sock.animations = [sway];
-  scene.beginAnimation(sock, 0, 120, true);
+  scene.beginAnimation(sock, 0, 135, true);
 }
