@@ -6,7 +6,7 @@
 // Elevation clamped to coastal max 50 — road never climbs mountains
 // When roadDist reaches totalLength it wraps to 0 — infinite loop
 
-export const COASTAL_MAX_Y = 50;
+export const COASTAL_MAX_Y = 30;
 
 export const ROAD_LOOP = [
 
