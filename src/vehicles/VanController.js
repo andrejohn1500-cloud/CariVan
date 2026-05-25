@@ -22,7 +22,7 @@ const CFG = {
 };
 
 export class VanController {
-  constructor(scene, terrain, startPos) {
+  constructor(scene, terrain, startPos, roadSystem) {
     this.scene = scene;
     this.terrain = terrain;
     this.speed = 0;
@@ -34,6 +34,11 @@ export class VanController {
     this.gear = 1;
     this.wheelSpin = [0, 0, 0, 0];
     this.skidding = false;
+
+    this.roadSystem = roadSystem || null;
+    this.roadDist   = 0;
+    this.lateral    = 0;
+    this.offRoad    = false;
 
     this.input = {
       throttle: 0, brake: 0,
@@ -77,7 +82,7 @@ export class VanController {
         this._bodyNode.position.y = CFG.suspensionHeight;
         this._wheelNodes.forEach(n => { if (n) n.setEnabled(false); });
         this._glbLoaded = true;
-        console.log('subaru loaded');
+        console.log('suzuki loaded');
       })
       .catch(err => {
         console.warn('GLB not found:', err);
@@ -98,9 +103,9 @@ export class VanController {
   _buildProceduralVan() {
     const sc = this.scene;
     const root = this._bodyNode;
-    const bodyMat = this._mat('body', '#ECECE8', 0.25);
-    const glassMat = this._mat('glass', '#1A2B3C', 0.60);
-    const chromeMat = this._mat('chrome', '#C0C0C0', 0.90);
+    const bodyMat  = this._mat('body',   '#ECECE8', 0.25);
+    const glassMat = this._mat('glass',  '#1A2B3C', 0.60);
+    const chromeMat= this._mat('chrome', '#C0C0C0', 0.90);
     const mk = (n, w, h, d, x, y, z, mat) => {
       const b = MeshBuilder.CreateBox(n, { width: w, height: h, depth: d }, sc);
       b.material = mat;
@@ -108,22 +113,22 @@ export class VanController {
       b.parent = root;
       return b;
     };
-    mk('body', 2.1, 2.1, 5.0, 0, 1.2, 0, bodyMat);
-    mk('screen', 1.75, 1.0, 0.06, 0, 1.75, -2.53, glassMat);
-    mk('fBumper', 2.2, 0.22, 0.2, 0, 0.35, -2.72, chromeMat);
-    mk('rBumper', 2.2, 0.22, 0.2, 0, 0.35, 2.62, chromeMat);
+    mk('body',    2.1, 2.1, 5.0,  0, 1.2,     0, bodyMat);
+    mk('screen',  1.75,1.0, 0.06, 0, 1.75, -2.53, glassMat);
+    mk('fBumper', 2.2, 0.22,0.2,  0, 0.35, -2.72, chromeMat);
+    mk('rBumper', 2.2, 0.22,0.2,  0, 0.35,  2.62, chromeMat);
     root.position.y = CFG.suspensionHeight;
   }
 
   _buildWheels() {
     const sc = this.scene;
     const tireMat = this._mat('tire', '#1A1A1A', 0.05);
-    const rimMat = this._mat('rim', '#C9A84C', 0.80);
+    const rimMat  = this._mat('rim',  '#C9A84C', 0.80);
     const positions = [
-      { x: -1.12, z: -1.6, front: true },
-      { x: 1.12, z: -1.6, front: true },
-      { x: -1.12, z: 1.5, front: false },
-      { x: 1.12, z: 1.5, front: false },
+      { x: -1.12, z: -1.6, front: true  },
+      { x:  1.12, z: -1.6, front: true  },
+      { x: -1.12, z:  1.5, front: false },
+      { x:  1.12, z:  1.5, front: false },
     ];
     positions.forEach((pos, i) => {
       const node = new TransformNode('wheelNode' + i, sc);
@@ -168,7 +173,7 @@ export class VanController {
     try {
       this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = this._audioCtx;
-      this._engineOsc = ctx.createOscillator();
+      this._engineOsc  = ctx.createOscillator();
       this._engineGain = ctx.createGain();
       this._engineOsc.type = 'sawtooth';
       this._engineOsc.frequency.value = 60;
@@ -183,7 +188,7 @@ export class VanController {
     try {
       if (!this._audioCtx) return;
       const ctx = this._audioCtx;
-      const osc = ctx.createOscillator();
+      const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -210,10 +215,10 @@ export class VanController {
     const jSteerL   = Math.max(0, -this._joystickX);
     const jSteerR   = Math.max(0,  this._joystickX);
 
-    this.input.throttle  = Math.max(kThrottle,  jThrottle);
-    this.input.brake     = Math.max(kBrake,     jBrake);
-    this.input.steerL    = Math.max(kSteerL,    jSteerL);
-    this.input.steerR    = Math.max(kSteerR,    jSteerR);
+    this.input.throttle  = Math.max(kThrottle, jThrottle);
+    this.input.brake     = Math.max(kBrake,    jBrake);
+    this.input.steerL    = Math.max(kSteerL,   jSteerL);
+    this.input.steerR    = Math.max(kSteerR,   jSteerR);
     this.input.handbrake = Math.max(this.input.handbrake, kHB);
   }
 
@@ -224,78 +229,123 @@ export class VanController {
     const { throttle, brake, steerL, steerR, handbrake } = this.input;
     const speedAbs = Math.abs(this.speed);
     const speedMs  = this.speed / 3.6;
-    const moving   = speedAbs > 0.5;
     const fwdSign  = this.speed >= 0 ? 1 : -1;
 
-    const steerInput = steerR - steerL;
-    const steerBlend = Math.min(speedAbs / CFG.steerSpeedBlend, 1);
-    const steerRate  = CFG.steerSpeedLow + (CFG.steerSpeedHigh - CFG.steerSpeedLow) * steerBlend;
-    const steerMax   = CFG.steerMaxRad * (1 - steerBlend * 0.45);
-
-    if (steerInput !== 0) {
-      this.steerAngle += steerInput * steerRate * dt;
-      this.steerAngle = Math.max(-steerMax, Math.min(steerMax, this.steerAngle));
-    } else {
-      const ret = CFG.steerReturnRate * dt;
-      if (Math.abs(this.steerAngle) < ret) this.steerAngle = 0;
-      else this.steerAngle -= Math.sign(this.steerAngle) * ret;
-    }
-
+    // ── Speed ──────────────────────────────────────────────────────────────
     if (handbrake > 0) {
       this.speed -= Math.sign(this.speed) * CFG.handbrakeForce * dt;
     } else if (brake > 0) {
-      if (this.speed > 0.5) this.speed -= CFG.footBrake * brake * dt;
-      else if (this.speed > -CFG.reverseSpeedKph) this.speed -= CFG.engineTorque * 0.6 * brake * dt;
+      if (this.speed > 0.5)
+        this.speed -= CFG.footBrake * brake * dt;
+      else if (this.speed > -CFG.reverseSpeedKph)
+        this.speed -= CFG.engineTorque * 0.6 * brake * dt;
     } else if (throttle > 0) {
-      if (this.speed < CFG.topSpeedKph) this.speed += CFG.engineTorque * throttle * dt;
+      if (this.speed < CFG.topSpeedKph)
+        this.speed += CFG.engineTorque * throttle * dt;
     } else {
       const eb = CFG.engineBrake * dt;
       if (Math.abs(this.speed) < eb) this.speed = 0;
       else this.speed -= Math.sign(this.speed) * eb;
     }
+    this.speed = Math.max(-CFG.reverseSpeedKph,
+                          Math.min(CFG.topSpeedKph, this.speed));
 
-    this.speed = Math.max(-CFG.reverseSpeedKph, Math.min(CFG.topSpeedKph, this.speed));
+    // ── Movement ───────────────────────────────────────────────────────────
+    if (this.roadSystem) {
+      // Lateral drift from joystick/keys
+      const latInput = steerR - steerL;
+      this.lateral  += latInput * 9 * dt;
+      // Hard road boundary
+      this.lateral   = Math.max(-6, Math.min(6, this.lateral));
+      // Gentle centre return when no input
+      if (latInput === 0)
+        this.lateral *= Math.pow(0.97, dt * 60);
+      // Off-road flag — clips roadside objects
+      this.offRoad = Math.abs(this.lateral) > 5.5;
 
-    if (moving) {
-      const wheelBase  = 2.8 * CFG.worldScale;
-      const turnRadius = wheelBase / Math.tan(Math.abs(this.steerAngle) + 0.0001);
-      const angularVel = (speedMs * CFG.worldScale) / turnRadius;
-      this.heading += Math.sign(this.steerAngle) * angularVel * fwdSign * dt;
+      // Advance along spline
+      const worldSpd = (this.speed / 3.6) * CFG.worldScale;
+      this.roadDist += worldSpd * dt;
+      this.roadDist  = Math.max(0,
+        Math.min(this.roadDist, this.roadSystem.totalLength - 1));
+
+      // Apply spline position + heading
+      const { position, heading } =
+        this.roadSystem.getCarTransform(this.roadDist, this.lateral);
+      this.root.position.copyFrom(position);
+      this.heading = heading;
+      this.root.rotation.y = heading;
+
+    } else {
+      // Fallback — free roam physics
+      const steerInput = steerR - steerL;
+      const steerBlend = Math.min(speedAbs / CFG.steerSpeedBlend, 1);
+      const steerRate  = CFG.steerSpeedLow +
+        (CFG.steerSpeedHigh - CFG.steerSpeedLow) * steerBlend;
+      const steerMax   = CFG.steerMaxRad * (1 - steerBlend * 0.45);
+
+      if (steerInput !== 0) {
+        this.steerAngle += steerInput * steerRate * dt;
+        this.steerAngle  = Math.max(-steerMax,
+                                     Math.min(steerMax, this.steerAngle));
+      } else {
+        const ret = CFG.steerReturnRate * dt;
+        if (Math.abs(this.steerAngle) < ret) this.steerAngle = 0;
+        else this.steerAngle -= Math.sign(this.steerAngle) * ret;
+      }
+
+      const moving = speedAbs > 0.5;
+      if (moving) {
+        const wheelBase  = 2.8 * CFG.worldScale;
+        const turnRadius = wheelBase /
+          Math.tan(Math.abs(this.steerAngle) + 0.0001);
+        const angularVel = (speedMs * CFG.worldScale) / turnRadius;
+        this.heading += Math.sign(this.steerAngle) *
+                        angularVel * fwdSign * dt;
+      }
+
+      this.root.rotation.y = this.heading;
+      const fwdX     = Math.sin(this.heading);
+      const fwdZ     = Math.cos(this.heading);
+      const worldSpd = (this.speed / 3.6) * CFG.worldScale;
+      this.root.position.x += fwdX * worldSpd * dt;
+      this.root.position.z += fwdZ * worldSpd * dt;
+
+      const groundY = this._getGroundHeight(
+        this.root.position.x, this.root.position.z);
+      const targetY = groundY + CFG.suspensionHeight;
+      const diff    = targetY - this.root.position.y;
+      this.suspVelocity += diff * 12 * dt;
+      this.suspVelocity *= Math.pow(0.72, dt * 60);
+      this.root.position.y += this.suspVelocity * dt;
+      this.root.position.y  = Math.max(groundY + 0.3,
+                                        this.root.position.y);
     }
 
-    this.root.rotation.y = this.heading;
-
-    const fwdX     = Math.sin(this.heading);
-    const fwdZ     = Math.cos(this.heading);
-    const worldSpd = (this.speed / 3.6) * CFG.worldScale;
-
-    this.root.position.x += fwdX * worldSpd * dt;
-    this.root.position.z += fwdZ * worldSpd * dt;
-
-    const groundY = this._getGroundHeight(this.root.position.x, this.root.position.z);
-    const targetY = groundY + CFG.suspensionHeight;
-    const diff    = targetY - this.root.position.y;
-    this.suspVelocity += diff * 12 * dt;
-    this.suspVelocity *= Math.pow(0.72, dt * 60);
-    this.root.position.y += this.suspVelocity * dt;
-    this.root.position.y  = Math.max(groundY + 0.3, this.root.position.y);
-
-    const targetRoll = -this.steerAngle * CFG.rollFactor * Math.min(speedAbs / 30, 1);
+    // ── Body roll ──────────────────────────────────────────────────────────
+    const latInput2  = steerR - steerL;
+    const targetRoll = -latInput2 * CFG.rollFactor *
+                        Math.min(speedAbs / 30, 1);
     this.bodyRoll += (targetRoll - this.bodyRoll) * Math.min(dt * 5, 1);
     this._bodyNode.rotation.z = this.bodyRoll;
 
+    // ── Wheels ─────────────────────────────────────────────────────────────
+    const worldSpd2 = (this.speed / 3.6) * CFG.worldScale;
     const wheelCirc = Math.PI * 0.84;
-    const spinRate  = (worldSpd / wheelCirc) * (Math.PI * 2);
+    const spinRate  = (worldSpd2 / wheelCirc) * (Math.PI * 2);
     this._wheelNodes.forEach((node, i) => {
       if (!node) return;
       this.wheelSpin[i] = (this.wheelSpin[i] || 0) + spinRate * dt;
       if (node.isFront) node.rotation.y = this.steerAngle;
-      if (this._wheelMeshes[i]) this._wheelMeshes[i].rotation.x = this.wheelSpin[i];
+      if (this._wheelMeshes[i])
+        this._wheelMeshes[i].rotation.x = this.wheelSpin[i];
     });
 
+    // ── Engine audio ───────────────────────────────────────────────────────
     if (this._audioCtx && this._engineOsc) {
       const freq = 45 + (this.engineRpm || 800) * 0.055;
-      this._engineOsc.frequency.setTargetAtTime(freq, this._audioCtx.currentTime, 0.08);
+      this._engineOsc.frequency.setTargetAtTime(
+        freq, this._audioCtx.currentTime, 0.08);
     }
   }
 
