@@ -94,9 +94,9 @@ window._startCariVan = async function(vehicleType, missionType) {
     }
 
     // ── Render roads onto terrain ────────────────────────────────────────────
-    setProgress(65, 'Rendering road network on terrain…');
-    _roads = renderRoads(_scene, terrain, roadData) || [];
-    renderJunctions(_scene, terrain, roadData);
+    setProgress(65, 'Skipping road render for now…');
+_roads = [];
+// renderRoads and renderJunctions disabled temporarily
 
     // ── World props ──────────────────────────────────────────────────────────
     setProgress(72, 'Skipping airport for now…');
