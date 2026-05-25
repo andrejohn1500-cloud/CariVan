@@ -2,7 +2,7 @@ import { Vector3, MeshBuilder, StandardMaterial, Color3 }
   from '@babylonjs/core';
 import { ROAD_LOOP, COASTAL_MAX_Y } from './RoadNetwork.js';
 
-export const ROAD_WIDTH    = 48;
+export const ROAD_WIDTH    = 80;
 export const ROAD_BOUNDARY = 22;
 export const ROAD_EDGE     = 20;
 
@@ -11,7 +11,7 @@ export class RoadSystem {
     this.scene       = scene;
     this.terrain     = terrain;
     this.points      = this._buildSpline();
-    this.points      = this._smoothY(this.points, 20);
+    this.points      = this._smoothY(this.points, 35);
     this.cumDist     = this._calcCumDist();
     this.totalLength = this.cumDist[this.cumDist.length - 1];
     this._buildRoadMesh();
@@ -49,7 +49,7 @@ export class RoadSystem {
     const raw   = ROAD_LOOP.map(([x, z]) => ({ x, z }));
     const pts   = [];
     const N     = raw.length;
-    const STEPS = 40;
+    const STEPS = 80;
 
     for (let i = 0; i < N; i++) {
       const p0 = raw[(i - 1 + N) % N];
@@ -101,7 +101,7 @@ export class RoadSystem {
     const perp = new Vector3(tang.z, 0, -tang.x);
     const wx   = pos.x + perp.x * lateral;
     const wz   = pos.z + perp.z * lateral;
-    return { position: new Vector3(wx, pos.y + 0.65, wz), heading };
+    return { position: new Vector3(wx, pos.y + 0.3, wz), heading };
   }
 
   findNearestDist(x, z) {
