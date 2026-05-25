@@ -11,6 +11,8 @@ import { VanController }            from './vehicles/VanController.js';
 import { RoadSystem }               from './road/RoadSystem.js';
 import { buildArgyleAirport }       from './world/ArgyleAirport.js';
 import { buildSVGLocations }        from './world/SVGLocations.js';
+import { buildRoadsideScenery }     from './world/RoadsideScenery.js';
+import { buildRoadsideTraffic }     from './world/RoadsideTraffic.js';
 
 let _engine, _scene, _van, _camera, _roads = [];
 let _paused = false;
@@ -73,29 +75,45 @@ window._startCariVan = async function (vehicleType, missionType) {
     sun.intensity = 1.2;
 
     // ── Terrain ───────────────────────────────────────────────────────────────
-    setProgress(15, 'Loading terrain…');
+    setProgress(12, 'Loading terrain…');
     const terrain = await buildTerrain(
-      _scene, msg => setProgress(25, msg));
+      _scene, msg => setProgress(22, msg));
 
     // ── Ocean ─────────────────────────────────────────────────────────────────
-    setProgress(38, 'Filling the Caribbean Sea…');
+    setProgress(35, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
     // ── Road network — full island loop ───────────────────────────────────────
-    setProgress(48, 'Building island road network…');
+    setProgress(45, 'Building island road network…');
     const roadSystem = new RoadSystem(_scene, terrain);
     _roads = [];
 
+    // ── Roadside scenery — palms, bananas, flowers ────────────────────────────
+    setProgress(55, 'Planting tropical scenery…');
+    try {
+      buildRoadsideScenery(_scene, terrain, roadSystem.points);
+    } catch (e) {
+      console.warn('Scenery failed:', e.message);
+    }
+
+    // ── Roadside traffic — parked cars, police ────────────────────────────────
+    setProgress(62, 'Placing roadside vehicles…');
+    try {
+      buildRoadsideTraffic(_scene, terrain, roadSystem.points);
+    } catch (e) {
+      console.warn('Traffic failed:', e.message);
+    }
+
     // ── Argyle International Airport ──────────────────────────────────────────
-    setProgress(60, 'Building Argyle International Airport…');
+    setProgress(68, 'Building Argyle International Airport…');
     try {
       buildArgyleAirport(_scene, terrain);
     } catch (e) {
-      console.warn('Airport build failed:', e.message);
+      console.warn('Airport failed:', e.message);
     }
 
-    // ── SVG Road signs, speed bumps, location markers ─────────────────────────
-    setProgress(68, 'Placing road signs and landmarks…');
+    // ── SVG road signs + location markers ────────────────────────────────────
+    setProgress(74, 'Placing road signs and landmarks…');
     let _locations = [];
     try {
       _locations = buildSVGLocations(_scene, terrain);
@@ -104,7 +122,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     }
 
     // ── Van spawn — Kingstown harbour ─────────────────────────────────────────
-    setProgress(80, 'Spawning van…');
+    setProgress(82, 'Spawning van…');
     const sx = 5278, sz = -8550;
     const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
     const sy   = Math.max(rawH, 20) + 3;
@@ -130,9 +148,9 @@ window._startCariVan = async function (vehicleType, missionType) {
     setProgress(90, 'Setting up camera…');
     _camera = new ArcRotateCamera(
       'cam',
-      Math.PI / 2,  // alpha — behind van
-      0.72,          // beta  — scenic angle
-      150,           // radius
+      Math.PI / 2,
+      0.72,
+      150,
       new Vector3(sx, sy + 1, sz),
       _scene
     );
@@ -167,7 +185,7 @@ window._startCariVan = async function (vehicleType, missionType) {
       t.y += 1;
       _camera.target = Vector3.Lerp(_camera.target, t, 0.08);
 
-      // Auto-return behind car after 3s no input
+      // Auto-return behind car after 3s
       if (performance.now() - _lastCamInput > 3000) {
         _manualCam = false;
       }
