@@ -1,7 +1,11 @@
 import {
   MeshBuilder, StandardMaterial, Color3, Vector3,
-  TransformNode, SceneLoader, Tools
+  TransformNode, SceneLoader
 } from '@babylonjs/core';
+import { GLTFFileLoader } from '@babylonjs/loaders/glTF/2.0/glTFFileLoader.js';
+
+// Register GLB/GLTF loader plugin
+SceneLoader.RegisterPlugin(new GLTFFileLoader());
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  CariVan — Advanced GTA-Style Van Controller
@@ -9,41 +13,30 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CFG = {
-  // ── Engine ──────────────────────────────────────────────────────────────
-  topSpeedKph:        95,        // Vincy minibus realistic top
+  topSpeedKph:        95,
   reverseSpeedKph:    25,
-  engineTorque:       18,        // acceleration force
-  engineBrake:        6,         // lift-off decel
-  footBrake:          38,        // brake pedal decel
-  handbrakeForce:     55,        // e-brake decel
-
-  // ── Traction / drift ────────────────────────────────────────────────────
-  tractionFull:       1.0,       // grip on normal road
-  tractionHandbrake:  0.18,      // rear slip on e-brake
-  tractionLow:        0.55,      // wet / dirt surface feel
-  lateralFriction:    0.82,      // sideways grip (higher = less drift)
-  driftThreshold:     62,        // kph before oversteer kicks in
-
-  // ── Steering ────────────────────────────────────────────────────────────
-  steerMaxRad:        0.58,      // max wheel turn angle
-  steerSpeedLow:      2.8,       // turn rate at low speed
-  steerSpeedHigh:     1.1,       // turn rate at high speed
-  steerReturnRate:    5.5,       // auto-centre rate
-  steerSpeedBlend:    80,        // kph where low→high blends
-
-  // ── Suspension ──────────────────────────────────────────────────────────
-  suspensionHeight:   0.52,      // ride height above ground
-  suspensionStiff:    12,        // body bounce stiffness
-  suspensionDamp:     0.72,      // bounce damping
-  rollFactor:         0.04,      // body roll in corners
-  pitchFactor:        0.025,     // nose-dip under braking
-
-  // ── Weight ──────────────────────────────────────────────────────────────
-  mass:               2100,      // kg — E25 Caravan loaded
-  cgHeight:           1.1,       // centre of gravity height
-
-  // ── World scale ─────────────────────────────────────────────────────────
-  worldScale:         10,        // game units per real metre
+  engineTorque:       18,
+  engineBrake:        6,
+  footBrake:          38,
+  handbrakeForce:     55,
+  tractionFull:       1.0,
+  tractionHandbrake:  0.18,
+  tractionLow:        0.55,
+  lateralFriction:    0.82,
+  driftThreshold:     62,
+  steerMaxRad:        0.58,
+  steerSpeedLow:      2.8,
+  steerSpeedHigh:     1.1,
+  steerReturnRate:    5.5,
+  steerSpeedBlend:    80,
+  suspensionHeight:   0.52,
+  suspensionStiff:    12,
+  suspensionDamp:     0.72,
+  rollFactor:         0.04,
+  pitchFactor:        0.025,
+  mass:               2100,
+  cgHeight:           1.1,
+  worldScale:         10,
 };
 
 export class VanController {
@@ -51,11 +44,10 @@ export class VanController {
     this.scene   = scene;
     this.terrain = terrain;
 
-    // ── State vectors ──────────────────────────────────────────────────
-    this.velocity        = Vector3.Zero();   // world-space m/s
-    this.speed           = 0;                // signed kph
-    this.steerAngle      = 0;               // current steer rad
-    this.heading         = 0;               // yaw rad
+    this.velocity        = Vector3.Zero();
+    this.speed           = 0;
+    this.steerAngle      = 0;
+    this.heading         = 0;
     this.bodyRoll        = 0;
     this.bodyPitch       = 0;
     this.suspOffset      = 0;
@@ -64,42 +56,31 @@ export class VanController {
     this.gear            = 1;
     this.handbrakeActive = false;
     this.onGround        = true;
-    this.airTime         = 0;
     this.skidding        = false;
     this.skidIntensity   = 0;
+    this.wheelSpin       = [0, 0, 0, 0];
+    this.wheelSteer      = [0, 0, 0, 0];
 
-    // ── Wheel state ────────────────────────────────────────────────────
-    this.wheelSpin   = [0, 0, 0, 0];  // visual spin angle per wheel
-    this.wheelSteer  = [0, 0, 0, 0];  // visual steer per wheel
-
-    // ── Input (raw 0–1 axes) ───────────────────────────────────────────
     this.input = {
       throttle: 0, brake: 0,
       steerL: 0, steerR: 0,
       handbrake: 0, horn: false,
-      nitro: 0,
     };
 
-    // ── Audio context ──────────────────────────────────────────────────
-    this._audioCtx  = null;
-    this._engineOsc = null;
+    this._audioCtx   = null;
+    this._engineOsc  = null;
     this._engineGain = null;
-    this._skidNode  = null;
+    this._skidGain   = null;
 
-    // ── Scene nodes ────────────────────────────────────────────────────
     this.root = new TransformNode('vanRoot', scene);
-    this.root.position = startPos
-      ? startPos.clone()
-      : new Vector3(0, 4, 0);
-    this.heading = 0;
+    this.root.position = startPos ? startPos.clone() : new Vector3(0, 4, 0);
 
-    this._bodyNode   = new TransformNode('vanBody', scene);
+    this._bodyNode = new TransformNode('vanBody', scene);
     this._bodyNode.parent = this.root;
 
-    this._wheelNodes = [];   // TransformNode per wheel (4)
-    this._wheelMeshes = [];  // visual mesh per wheel
+    this._wheelNodes  = [];
+    this._wheelMeshes = [];
 
-    // ── Build ──────────────────────────────────────────────────────────
     this._tryLoadGLB();
     this._buildWheels();
     this._setupInput();
@@ -109,31 +90,29 @@ export class VanController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  GLB LOADER — tries real model, falls back to box van
+  //  GLB LOADER
   // ═══════════════════════════════════════════════════════════════════════
   _tryLoadGLB() {
-    SceneLoader.ImportMeshAsync('', '/assets/', 'van_caravan.glb', this.scene)
+    SceneLoader.ImportMeshAsync('', './assets/', 'van_caravan.glb', this.scene)
       .then(result => {
         result.meshes.forEach(m => {
           m.parent = this._bodyNode;
           m.receiveShadows = true;
         });
-        // Orient GLB — most Sketchfab models face +Z, game faces -Z
         this._bodyNode.rotation.y = Math.PI;
-        // Scale to match world units (E25 is ~4.7m long)
         const scale = (4.7 * CFG.worldScale) / 47;
         this._bodyNode.scaling = new Vector3(scale, scale, scale);
         this._bodyNode.position.y = CFG.suspensionHeight;
         console.log('✅ van_caravan.glb loaded');
       })
-      .catch(() => {
-        console.warn('GLB not found — using procedural van mesh');
+      .catch(err => {
+        console.warn('GLB not found — using procedural van:', err);
         this._buildProceduralVan();
       });
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  PROCEDURAL VAN (fallback) — keeps game running without GLB
+  //  PROCEDURAL VAN FALLBACK
   // ═══════════════════════════════════════════════════════════════════════
   _mat(n, hex, spec = 0.15) {
     const m = new StandardMaterial(n + '_mat', this.scene);
@@ -183,26 +162,25 @@ export class VanController {
       mk('wR'+i, 0.9, 0.55,0.05, wx, 1.75, 1.06, glassMat);
       mk('wL'+i, 0.9, 0.55,0.05, wx, 1.75,-1.06, glassMat);
     }
-    mk('cabWR', 0.65,0.5, 0.05,-1.75,1.75, 1.06, glassMat);
-    mk('cabWL', 0.65,0.5, 0.05,-1.75,1.75,-1.06, glassMat);
-
+    mk('cabWR', 0.65,0.5,0.05,-1.75,1.75, 1.06, glassMat);
+    mk('cabWL', 0.65,0.5,0.05,-1.75,1.75,-1.06, glassMat);
     root.position.y = CFG.suspensionHeight;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  WHEELS — 4 visual nodes with spin + steer
+  //  WHEELS
   // ═══════════════════════════════════════════════════════════════════════
   _buildWheels() {
-    const sc = this.scene;
+    const sc      = this.scene;
     const tireMat = this._mat('tire', '#1A1A1A', 0.05);
     const rimMat  = this._mat('rim',  '#C9A84C', 0.80);
     const hubMat  = this._mat('hub',  '#C0C0C0', 0.90);
 
     const positions = [
-      { x: -1.6,  z:  1.12, front: true  },   // FR
-      { x: -1.6,  z: -1.12, front: true  },   // FL
-      { x:  1.5,  z:  1.12, front: false },   // RR
-      { x:  1.5,  z: -1.12, front: false },   // RL
+      { x: -1.6, z:  1.12, front: true  },
+      { x: -1.6, z: -1.12, front: true  },
+      { x:  1.5, z:  1.12, front: false },
+      { x:  1.5, z: -1.12, front: false },
     ];
 
     positions.forEach((pos, i) => {
@@ -214,23 +192,23 @@ export class VanController {
       const tire = MeshBuilder.CreateCylinder('tire'+i, {
         diameter: 0.84, height: 0.38, tessellation: 24
       }, sc);
-      tire.material  = tireMat;
+      tire.material   = tireMat;
       tire.rotation.z = Math.PI / 2;
-      tire.parent    = node;
+      tire.parent     = node;
 
       const rim = MeshBuilder.CreateCylinder('rim'+i, {
         diameter: 0.52, height: 0.39, tessellation: 18
       }, sc);
-      rim.material  = rimMat;
+      rim.material   = rimMat;
       rim.rotation.z = Math.PI / 2;
-      rim.parent    = node;
+      rim.parent     = node;
 
       const hub = MeshBuilder.CreateCylinder('hub'+i, {
         diameter: 0.16, height: 0.40, tessellation: 8
       }, sc);
-      hub.material  = hubMat;
+      hub.material   = hubMat;
       hub.rotation.z = Math.PI / 2;
-      hub.parent    = node;
+      hub.parent     = node;
 
       this._wheelNodes.push(node);
       this._wheelMeshes.push(tire);
@@ -238,7 +216,7 @@ export class VanController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  INPUT SETUP — keyboard + touch joystick
+  //  INPUT
   // ═══════════════════════════════════════════════════════════════════════
   _setupInput() {
     const keys = {};
@@ -249,17 +227,15 @@ export class VanController {
     });
     window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-    // Poll keys each frame rather than set once — smoother
     this._pollKeys = () => {
       this.input.throttle  = (keys['ArrowUp']    || keys['w'] || keys['W']) ? 1 : 0;
       this.input.brake     = (keys['ArrowDown']  || keys['s'] || keys['S']) ? 1 : 0;
       this.input.steerL    = (keys['ArrowLeft']  || keys['a'] || keys['A']) ? 1 : 0;
       this.input.steerR    = (keys['ArrowRight'] || keys['d'] || keys['D']) ? 1 : 0;
-      this.input.handbrake = (keys['Shift'] || keys['e'] || keys['E'])      ? 1 : 0;
+      this.input.handbrake = (keys['Shift']      || keys['e'] || keys['E']) ? 1 : 0;
     };
   }
 
-  // ── Joystick from UI ──────────────────────────────────────────────────
   setJoystick(nx, ny) {
     this.input.throttle  = Math.max(0, -ny);
     this.input.brake     = Math.max(0,  ny);
@@ -270,14 +246,13 @@ export class VanController {
   setHandbrake(v) { this.input.handbrake = v ? 1 : 0; }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  AUDIO ENGINE — procedural engine + skid sounds
+  //  AUDIO
   // ═══════════════════════════════════════════════════════════════════════
   _initAudio() {
     try {
       this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = this._audioCtx;
 
-      // Engine oscillator
       this._engineOsc  = ctx.createOscillator();
       this._engineGain = ctx.createGain();
       const dist = ctx.createWaveShaper();
@@ -290,7 +265,6 @@ export class VanController {
       this._engineGain.gain.value = 0.04;
       this._engineOsc.start();
 
-      // Skid noise
       const bufSize = ctx.sampleRate * 0.5;
       const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
       const data = noiseBuf.getChannelData(0);
@@ -299,7 +273,6 @@ export class VanController {
       this._skidGain = ctx.createGain();
       this._skidGain.gain.value = 0;
       this._skidGain.connect(ctx.destination);
-
     } catch(e) { console.warn('Audio init failed:', e); }
   }
 
@@ -315,29 +288,22 @@ export class VanController {
   _updateAudio(dt) {
     if (!this._audioCtx || !this._engineOsc) return;
     const ctx = this._audioCtx;
-    const spd = Math.abs(this.speed);
-
-    // Engine pitch follows RPM
-    const targetRpm = 800 + (this.engineRpm - 800);
-    const baseFreq  = 45 + targetRpm * 0.055;
+    const baseFreq = 45 + this.engineRpm * 0.055;
     this._engineOsc.frequency.setTargetAtTime(baseFreq, ctx.currentTime, 0.08);
     this._engineGain.gain.setTargetAtTime(
       0.03 + this.input.throttle * 0.06, ctx.currentTime, 0.05
     );
-
-    // Skid sound
     if (this._skidGain) {
       const skidVol = this.skidding ? Math.min(this.skidIntensity * 0.18, 0.22) : 0;
       this._skidGain.gain.setTargetAtTime(skidVol, ctx.currentTime, 0.04);
     }
   }
 
-  // ── Horn ──────────────────────────────────────────────────────────────
   honk() {
     try {
       if (!this._audioCtx) return;
       const ctx = this._audioCtx;
-      const osc = ctx.createOscillator();
+      const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
       osc.type = 'sawtooth';
@@ -352,7 +318,7 @@ export class VanController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  GEAR BOX — automatic with engine RPM simulation
+  //  GEARBOX
   // ═══════════════════════════════════════════════════════════════════════
   _updateGearbox(dt) {
     const spd = Math.abs(this.speed);
@@ -361,18 +327,13 @@ export class VanController {
     for (let g = 1; g < gearRanges.length; g++) {
       if (spd > gearRanges[g - 1]) targetGear = g;
     }
-    if (this.speed < 0) targetGear = 0; // reverse
+    if (this.speed < 0) targetGear = 0;
+    this.gear = targetGear;
 
-    // Smooth gear change
-    if (targetGear !== this.gear) {
-      this.gear = targetGear;
-    }
-
-    // RPM model
     const gearRatio = [3.5, 3.0, 2.1, 1.4, 1.0, 0.75][this.gear] || 1.0;
     const targetRpm = 800 + (spd / CFG.topSpeedKph) * gearRatio * 5200;
     this.engineRpm += (targetRpm - this.engineRpm) * Math.min(dt * 4, 1);
-    this.engineRpm = Math.max(750, Math.min(6800, this.engineRpm));
+    this.engineRpm  = Math.max(750, Math.min(6800, this.engineRpm));
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -383,10 +344,7 @@ export class VanController {
 
     if (this._pollKeys) this._pollKeys();
 
-    const {
-      throttle, brake, steerL, steerR, handbrake
-    } = this.input;
-
+    const { throttle, brake, steerL, steerR, handbrake } = this.input;
     const speedKph = this.speed;
     const speedAbs = Math.abs(speedKph);
     const speedMs  = speedKph / 3.6;
@@ -397,15 +355,12 @@ export class VanController {
     const steerInput = steerR - steerL;
     const steerBlend = Math.min(speedAbs / CFG.steerSpeedBlend, 1);
     const steerRate  = CFG.steerSpeedLow + (CFG.steerSpeedHigh - CFG.steerSpeedLow) * steerBlend;
-
-    // High-speed steering is reduced (realistic)
     const steerMax   = CFG.steerMaxRad * (1 - steerBlend * 0.45);
 
     if (steerInput !== 0) {
       this.steerAngle += steerInput * steerRate * dt;
       this.steerAngle  = Math.max(-steerMax, Math.min(steerMax, this.steerAngle));
     } else {
-      // Auto-centre
       const returnSpeed = CFG.steerReturnRate * dt;
       if (Math.abs(this.steerAngle) < returnSpeed) {
         this.steerAngle = 0;
@@ -414,88 +369,69 @@ export class VanController {
       }
     }
 
-    // ── 2. THROTTLE / BRAKING / HANDBRAKE ────────────────────────────────
+    // ── 2. THROTTLE / BRAKE / HANDBRAKE ──────────────────────────────────
     this.handbrakeActive = handbrake > 0;
 
     if (this.handbrakeActive) {
-      // E-brake — rear lockup
       this.speed -= Math.sign(speedKph) * CFG.handbrakeForce * dt;
     } else if (brake > 0) {
       if (speedKph > 0.5) {
         this.speed -= CFG.footBrake * brake * dt;
       } else if (speedKph > -CFG.reverseSpeedKph) {
-        // Reverse from standstill
         this.speed -= CFG.engineTorque * 0.6 * brake * dt;
       }
     } else if (throttle > 0) {
       if (speedKph < CFG.topSpeedKph) {
-        // Torque curve — peaks mid-range, drops at top
         const rpmFactor = 1 - Math.pow((this.engineRpm - 3500) / 3500, 2) * 0.3;
         this.speed += CFG.engineTorque * throttle * Math.max(0.4, rpmFactor) * dt;
       }
     } else {
-      // Engine braking / coast
-      const engineBrake = CFG.engineBrake * dt;
-      if (Math.abs(speedKph) < engineBrake) {
+      const eb = CFG.engineBrake * dt;
+      if (Math.abs(speedKph) < eb) {
         this.speed = 0;
       } else {
-        this.speed -= Math.sign(speedKph) * engineBrake;
+        this.speed -= Math.sign(speedKph) * eb;
       }
     }
 
-    // Clamp speed
     this.speed = Math.max(-CFG.reverseSpeedKph, Math.min(CFG.topSpeedKph, this.speed));
 
     // ── 3. TRACTION & DRIFT ───────────────────────────────────────────────
-    let traction = CFG.tractionFull;
-    if (this.handbrakeActive && speedAbs > 10) {
-      traction = CFG.tractionHandbrake;
-    }
-
-    // Oversteer at high speed in corners
     const lateralForce = Math.abs(this.steerAngle) * speedAbs;
-    this.skidding = lateralForce > CFG.driftThreshold * 0.4 || this.handbrakeActive;
+    this.skidding      = lateralForce > CFG.driftThreshold * 0.4 || this.handbrakeActive;
     this.skidIntensity = Math.max(0, lateralForce / CFG.driftThreshold - 0.3);
 
-    // ── 4. YAW / HEADING ──────────────────────────────────────────────────
+    // ── 4. YAW ───────────────────────────────────────────────────────────
     if (moving) {
-      // Ackermann-style turn radius
       const wheelBase  = 2.8 * CFG.worldScale;
       const turnRadius = wheelBase / Math.tan(Math.abs(this.steerAngle) + 0.0001);
       const angularVel = (speedMs * CFG.worldScale) / turnRadius;
-
-      // Drift modifies yaw
-      const driftYaw = this.handbrakeActive
+      const driftYaw   = this.handbrakeActive
         ? angularVel * (1 + this.skidIntensity * 1.4)
         : angularVel;
-
       this.heading += Math.sign(this.steerAngle) * driftYaw * fwdSign * dt;
     }
 
     this.root.rotation.y = this.heading;
 
-    // ── 5. POSITION ───────────────────────────────────────────────────────
-    const fwdX = -Math.sin(this.heading);
-    const fwdZ = -Math.cos(this.heading);
+    // ── 5. POSITION — FIXED FORWARD DIRECTION ────────────────────────────
+    const fwdX   = Math.sin(this.heading);
+    const fwdZ   = Math.cos(this.heading);
     const worldSpd = (this.speed / 3.6) * CFG.worldScale;
 
     this.root.position.x += fwdX * worldSpd * dt;
     this.root.position.z += fwdZ * worldSpd * dt;
 
-    // ── 6. TERRAIN FOLLOW + SUSPENSION ────────────────────────────────────
-    const groundY = this._getGroundHeight(
-      this.root.position.x, this.root.position.z
-    );
+    // ── 6. TERRAIN + SUSPENSION ───────────────────────────────────────────
+    const groundY = this._getGroundHeight(this.root.position.x, this.root.position.z);
     const targetY = groundY + CFG.suspensionHeight;
     const diff    = targetY - this.root.position.y;
 
-    // Spring + damper
     this.suspVelocity += diff * CFG.suspensionStiff * dt;
     this.suspVelocity *= Math.pow(CFG.suspensionDamp, dt * 60);
     this.root.position.y += this.suspVelocity * dt;
     this.root.position.y  = Math.max(groundY + 0.3, this.root.position.y);
 
-    // Check if on slope — pitch body
     const hFwd  = this._getGroundHeight(
       this.root.position.x + fwdX * 2,
       this.root.position.z + fwdZ * 2
@@ -506,7 +442,6 @@ export class VanController {
     );
     const slopePitch = Math.atan2(hFwd - hBack, 4) * 0.6;
 
-    // Body roll + pitch on bodyNode
     const targetRoll  = -this.steerAngle * CFG.rollFactor * Math.min(speedAbs / 30, 1);
     const targetPitch = slopePitch - brake * CFG.pitchFactor + throttle * CFG.pitchFactor * 0.4;
     this.bodyRoll  += (targetRoll  - this.bodyRoll)  * Math.min(dt * 5, 1);
@@ -518,12 +453,11 @@ export class VanController {
     // ── 7. WHEEL ANIMATION ────────────────────────────────────────────────
     const wheelCirc = Math.PI * 0.84;
     const spinRate  = (worldSpd / wheelCirc) * (Math.PI * 2);
+
     this._wheelNodes.forEach((node, i) => {
       if (!node) return;
       this.wheelSpin[i] = (this.wheelSpin[i] || 0) + spinRate * dt;
-      if (node.isFront) {
-        node.rotation.y = this.steerAngle;
-      }
+      if (node.isFront) node.rotation.y = this.steerAngle;
       const wx = this.root.position.x + Math.cos(this.heading) * (i < 2 ? -1.6 : 1.5);
       const wz = this.root.position.z + Math.sin(this.heading) * (i < 2 ? -1.6 : 1.5);
       const wGround = this._getGroundHeight(wx, wz);
@@ -546,12 +480,12 @@ export class VanController {
     return 0;
   }
 
-  getSpeed()  { return Math.round(Math.abs(this.speed)); }
-  getGear()   {
+  getSpeed()   { return Math.round(Math.abs(this.speed)); }
+  getGear()    {
     if (this.speed < -0.5) return 'R';
     const g = ['N','1','2','3','4','5'];
     return g[this.gear] || 'D';
   }
-  getRpm()    { return Math.round(this.engineRpm); }
-  isSkidding(){ return this.skidding; }
+  getRpm()     { return Math.round(this.engineRpm); }
+  isSkidding() { return this.skidding; }
 }
