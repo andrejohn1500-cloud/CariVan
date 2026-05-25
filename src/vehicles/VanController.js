@@ -71,7 +71,7 @@ export class VanController {
           m.receiveShadows = true;
         });
         this._bodyNode.rotation.y = 0;
-        this._bodyNode.rotation.x = 0;
+        this._bodyNode.rotation.x = Math.PI;
         this._bodyNode.rotation.z = 0;
         this._bodyNode.scaling = new Vector3(1, 1, 1);
         this._bodyNode.position.y = CFG.suspensionHeight;
