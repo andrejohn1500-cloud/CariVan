@@ -5,19 +5,16 @@ import {
   MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
-import { buildTerrain }             from './terrain/TerrainMesh.js';
-import { buildOcean }               from './terrain/OceanPlane.js';
-import { VanController }            from './vehicles/VanController.js';
-import { RoadSystem }               from './road/RoadSystem.js';
-import { buildArgyleAirport }       from './world/ArgyleAirport.js';
-import { buildSVGLocations }        from './world/SVGLocations.js';
-import { buildRoadsideScenery }     from './world/RoadsideScenery.js';
-import { buildRoadsideTraffic }     from './world/RoadsideTraffic.js';
+import { buildTerrain }         from './terrain/TerrainMesh.js';
+import { buildOcean }           from './terrain/OceanPlane.js';
+import { VanController }        from './vehicles/VanController.js';
+import { RoadSystem }           from './road/RoadSystem.js';
+import { buildArgyleAirport }   from './world/ArgyleAirport.js';
 
-let _engine, _scene, _van, _camera, _roads = [];
+let _engine, _scene, _van, _camera;
 let _paused = false;
 
-// ── Loading screen helpers ────────────────────────────────────────────────────
+// ── Loading helpers ───────────────────────────────────────────────────────────
 function showLoading(missionType) {
   const el = document.getElementById('loading');
   const p  = document.getElementById('loading-sub');
@@ -41,7 +38,7 @@ function hideLoading() {
   setTimeout(() => { el.style.display = 'none'; }, 600);
 }
 
-// ── Main game entry point ─────────────────────────────────────────────────────
+// ── Main entry ────────────────────────────────────────────────────────────────
 window._startCariVan = async function (vehicleType, missionType) {
   try {
     showLoading(missionType);
@@ -75,37 +72,20 @@ window._startCariVan = async function (vehicleType, missionType) {
     sun.intensity = 1.2;
 
     // ── Terrain ───────────────────────────────────────────────────────────────
-    setProgress(12, 'Loading terrain…');
+    setProgress(15, 'Loading terrain…');
     const terrain = await buildTerrain(
-      _scene, msg => setProgress(22, msg));
+      _scene, msg => setProgress(25, msg));
 
     // ── Ocean ─────────────────────────────────────────────────────────────────
-    setProgress(35, 'Filling the Caribbean Sea…');
+    setProgress(38, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
-    // ── Road network — full island loop ───────────────────────────────────────
-    setProgress(45, 'Building island road network…');
+    // ── Road ─────────────────────────────────────────────────────────────────
+    setProgress(50, 'Building island road…');
     const roadSystem = new RoadSystem(_scene, terrain);
-    _roads = [];
 
-    // ── Argyle International Airport ──────────────────────────────────────────
-    setProgress(58, 'Building Argyle International Airport…');
-    try {
-      buildArgyleAirport(_scene, terrain);
-    } catch (e) {
-      console.warn('Airport failed:', e.message);
-    }
-
-    // ── SVG road signs + location markers ─────────────────────────────────────
-    setProgress(68, 'Placing road signs and landmarks…');
-    try {
-      buildSVGLocations(_scene, terrain);
-    } catch (e) {
-      console.warn('SVG locations failed:', e.message);
-    }
-
-    // ── Van spawn — Kingstown harbour ─────────────────────────────────────────
-    setProgress(80, 'Spawning van…');
+    // ── Van spawn ─────────────────────────────────────────────────────────────
+    setProgress(70, 'Spawning van…');
     const sx = 5278, sz = -8550;
     const rawH = terrain.getHeightAtCoordinates(sx, sz) || 0;
     const sy   = Math.max(rawH, 20) + 3;
@@ -118,17 +98,8 @@ window._startCariVan = async function (vehicleType, missionType) {
     _van.roadDist = roadSystem.findNearestDist(sx, sz);
     window.gameVan = _van;
 
-    // Small spawn marker high above — disappears after 5s
-    const marker    = MeshBuilder.CreateBox('marker', { size: 4 }, _scene);
-    marker.position = new Vector3(sx, sy + 12, sz);
-    const markerMat = new StandardMaterial('markerMat', _scene);
-    markerMat.diffuseColor  = new Color3(1, 0.2, 0);
-    markerMat.emissiveColor = new Color3(0.8, 0.1, 0);
-    marker.material = markerMat;
-    setTimeout(() => { if (marker) marker.dispose(); }, 5000);
-
     // ── Camera ────────────────────────────────────────────────────────────────
-    setProgress(90, 'Setting up camera…');
+    setProgress(85, 'Setting up camera…');
     _camera = new ArcRotateCamera(
       'cam',
       Math.PI / 2,
@@ -145,7 +116,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     _camera.upperRadiusLimit = 300;
     _camera.attachControl(canvas, true);
 
-    // ── Camera follow + manual pan with auto-return ───────────────────────────
+    // ── Camera follow + manual pan ────────────────────────────────────────────
     let _lastCamInput = 0;
     let _manualCam    = false;
 
@@ -162,11 +133,9 @@ window._startCariVan = async function (vehicleType, missionType) {
 
     _scene.onBeforeRenderObservable.add(() => {
       if (!_van || !_camera) return;
-
       const t = _van.root.position.clone();
       t.y += 1;
       _camera.target = Vector3.Lerp(_camera.target, t, 0.08);
-
       if (performance.now() - _lastCamInput > 3000) {
         _manualCam = false;
       }
@@ -191,7 +160,7 @@ window._startCariVan = async function (vehicleType, missionType) {
         window.updateMinimap(
           _van.root.position.x,
           _van.root.position.z,
-          _roads
+          []
         );
       }
       if (window.SM) {
@@ -200,7 +169,6 @@ window._startCariVan = async function (vehicleType, missionType) {
           spd > 100 ? 3 : spd > 70 ? 2 : spd > 50 ? 1 : 0
         );
       }
-
       _scene.render();
     });
 
@@ -210,16 +178,11 @@ window._startCariVan = async function (vehicleType, missionType) {
       if (window.SM) window.SM.onGameReady();
     }, 800);
 
-    // ── Deferred heavy GLB loading — after game is running ────────────────────
+    // ── Airport loads after game running — deferred ───────────────────────────
     setTimeout(() => {
-      try { buildRoadsideScenery(_scene, terrain, roadSystem.points); }
-      catch (e) { console.warn('Scenery failed:', e.message); }
-    }, 3000);
-
-    setTimeout(() => {
-      try { buildRoadsideTraffic(_scene, terrain, roadSystem.points); }
-      catch (e) { console.warn('Traffic failed:', e.message); }
-    }, 6000);
+      try { buildArgyleAirport(_scene, terrain); }
+      catch (e) { console.warn('Airport failed:', e.message); }
+    }, 4000);
 
   } catch (err) {
     console.error('CariVan failed:', err);
@@ -229,7 +192,7 @@ window._startCariVan = async function (vehicleType, missionType) {
   }
 };
 
-// ── Game control hooks ────────────────────────────────────────────────────────
+// ── Controls ──────────────────────────────────────────────────────────────────
 window._pauseGame      = () => { _paused = true;  };
 window._resumeGame     = () => { _paused = false; };
 window._stopGame       = () => { _paused = true;  };
@@ -239,7 +202,7 @@ window._applySettings  = (s) => {};
 window.SM = window.SM ||
   (typeof SM !== 'undefined' ? SM : null);
 
-// ── Auto-hide loading on first load ───────────────────────────────────────────
+// ── Auto-hide on first load ───────────────────────────────────────────────────
 (function () {
   const el = document.getElementById('loading');
   if (el) {
