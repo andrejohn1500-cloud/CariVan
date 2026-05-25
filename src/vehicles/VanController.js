@@ -89,13 +89,13 @@ export class VanController {
   //  GLB LOADER
   // ═══════════════════════════════════════════════════════════════════════
   _tryLoadGLB() {
-    SceneLoader.ImportMeshAsync('', './assets/', 'Honda Civic_fd2.glb', this.scene)
+    SceneLoader.ImportMeshAsync('', './assets/', 'subaru_impreza.glb', this.scene)
       .then(result => {
         result.meshes.forEach(m => {
           m.parent = this._bodyNode;
           m.receiveShadows = true;
         });
-        this._bodyNode.rotation.y = Math.PI;
+        this._bodyNode.rotation.y = Math.PI / 2;
         const scale = (4.7 * CFG.worldScale) / 47;
         this._bodyNode.scaling = new Vector3(scale, scale, scale);
         this._bodyNode.position.y = CFG.suspensionHeight;
