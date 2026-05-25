@@ -129,7 +129,7 @@ export class RoadSystem {
       closePath: false, sideOrientation: 2,
     }, this.scene);
     const roadMat = new StandardMaterial('roadMat', this.scene);
-    roadMat.diffuseColor    = new Color3(0.20, 0.20, 0.20);
+    roadMat.diffuseColor = new Color3(0.55, 0.55, 0.55);
     roadMat.specularColor   = new Color3(0.04, 0.04, 0.04);
     roadMat.backFaceCulling = false;
     road.material = roadMat;
