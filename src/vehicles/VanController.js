@@ -64,7 +64,7 @@ export class VanController {
   }
 
   _tryLoadGLB() {
-    SceneLoader.ImportMeshAsync('', './assets/', 'subaru_impreza.glb', this.scene)
+    SceneLoader.ImportMeshAsync('', './assets/', 'suzuki_swift.glb', this.scene)
       .then(result => {
         result.meshes.forEach(m => {
           m.parent = this._bodyNode;
