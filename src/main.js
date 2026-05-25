@@ -144,6 +144,7 @@ _roads = [];
         const t = _van.root.position.clone();
         t.y += 1;
         _camera.target = Vector3.Lerp(_camera.target, t, 0.1);
+_camera.alpha += (-_van.heading - Math.PI / 2 - _camera.alpha) * 0.05;
       }
     });
 
