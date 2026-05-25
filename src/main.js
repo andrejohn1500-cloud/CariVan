@@ -11,6 +11,7 @@ import { fetchSVGRoads, SVG_ROADS }        from './map/OSMFetcher.js';
 import { renderRoads, renderJunctions }    from './map/RoadRenderer.js';
 import { VanController }                   from './vehicles/VanController.js';
 import { buildArgyleAirport }              from './world/ArgyleAirport.js';
+import '@babylonjs/loaders/glTF';
 
 let _engine, _scene, _van, _camera, _roads = [];
 let _paused = false;
