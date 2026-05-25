@@ -13,7 +13,7 @@ const CFG = {
   handbrakeForce: 55,
   steerMaxRad: 0.16,
   steerSpeedLow: 0.6,
-  steerSpeedHigh: 1.1,
+  steerSpeedHigh: 0.3,
   steerReturnRate: 5.5,
   steerSpeedBlend: 80,
   suspensionHeight: 0.52,
