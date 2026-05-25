@@ -89,20 +89,17 @@ window._startCariVan = async function (vehicleType, missionType) {
     _roads = [];
 
     // ── Roadside scenery — palms, bananas, flowers ────────────────────────────
-    setProgress(55, 'Planting tropical scenery…');
-    try {
-      buildRoadsideScenery(_scene, terrain, roadSystem.points);
-    } catch (e) {
-      console.warn('Scenery failed:', e.message);
-    }
+    setProgress(55, 'Queuing scenery…');
+// Defer heavy GLB loading until after game starts
+setTimeout(() => {
+  try { buildRoadsideScenery(_scene, terrain, roadSystem.points); }
+  catch (e) { console.warn('Scenery failed:', e.message); }
+}, 3000);
 
-    // ── Roadside traffic — parked cars, police ────────────────────────────────
-    setProgress(62, 'Placing roadside vehicles…');
-    try {
-      buildRoadsideTraffic(_scene, terrain, roadSystem.points);
-    } catch (e) {
-      console.warn('Traffic failed:', e.message);
-    }
+setTimeout(() => {
+  try { buildRoadsideTraffic(_scene, terrain, roadSystem.points); }
+  catch (e) { console.warn('Traffic failed:', e.message); }
+}, 6000);
 
     // ── Argyle International Airport ──────────────────────────────────────────
     setProgress(68, 'Building Argyle International Airport…');
