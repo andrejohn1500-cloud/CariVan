@@ -71,7 +71,7 @@ export class VanController {
         });
         // Face forward correctly
         this._bodyNode.rotation.y = 0;
-        this._bodyNode.rotation.x = 0;
+        this._bodyNode.rotation.x = Math.PI;
         this._bodyNode.rotation.z = 0;
         const scale = 1.0;
         this._bodyNode.scaling = new Vector3(scale, scale, scale);
