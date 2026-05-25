@@ -17,34 +17,24 @@ export class RoadSystem {
     this._buildRoadMesh();
   }
 
-  // ── Terrain height — clamped to coastal max ───────────────────────────────
   _groundY(x, z) {
     try {
       const h = this.terrain?.getHeightAtCoordinates?.(x, z);
       if (h == null || isNaN(h)) return 0;
-      // Hard clamp — road never climbs mountains
       return Math.min(h, COASTAL_MAX_Y);
     } catch { return 0; }
   }
 
-  // ── Heavy Y smoothing — flattens coastal road ─────────────────────────────
   _smoothY(pts, passes) {
     for (let p = 0; p < passes; p++) {
       for (let i = 1; i < pts.length - 1; i++) {
-        const prev = pts[i - 1].y;
-        const curr = pts[i].y;
-        const next = pts[i + 1].y;
-        pts[i] = new Vector3(
-          pts[i].x,
-          (prev + curr * 2 + next) / 4,
-          pts[i].z
-        );
+        const avg = (pts[i-1].y + pts[i].y * 2 + pts[i+1].y) / 4;
+        pts[i] = new Vector3(pts[i].x, avg, pts[i].z);
       }
     }
     return pts;
   }
 
-  // ── Catmull-Rom spline — XZ only, Y from clamped terrain ─────────────────
   _buildSpline() {
     const raw   = ROAD_LOOP.map(([x, z]) => ({ x, z }));
     const pts   = [];
@@ -65,8 +55,7 @@ export class RoadSystem {
           0.5 * (2*b + (-a+c)*t + (2*a-5*b+4*c-d)*t2 + (-a+3*b-3*c+d)*t3);
         const x = f(p0.x, p1.x, p2.x, p3.x);
         const z = f(p0.z, p1.z, p2.z, p3.z);
-        const y = this._groundY(x, z);
-        pts.push(new Vector3(x, y, z));
+        pts.push(new Vector3(x, this._groundY(x, z), z));
       }
     }
     return pts;
@@ -79,9 +68,7 @@ export class RoadSystem {
     return c;
   }
 
-  // ── Lookup position on spline by distance — wraps for infinite loop ───────
   getAtDist(d) {
-    // Wrap distance — infinite loop
     d = ((d % this.totalLength) + this.totalLength) % this.totalLength;
     let lo = 0, hi = this.cumDist.length - 2;
     while (lo < hi) {
@@ -116,13 +103,13 @@ export class RoadSystem {
   }
 
   _perp(i) {
-    const next = this.points[(i + 1) % this.points.length];
-    const prev = this.points[(i - 1 + this.points.length) % this.points.length];
+    const N    = this.points.length;
+    const next = this.points[(i + 1) % N];
+    const prev = this.points[(i - 1 + N) % N];
     const tang = next.subtract(prev).normalize();
     return new Vector3(tang.z, 0, -tang.x);
   }
 
-  // ── Road mesh + markings ──────────────────────────────────────────────────
   _buildRoadMesh() {
     const half  = ROAD_WIDTH / 2;
     const pathL = [];
@@ -136,10 +123,10 @@ export class RoadSystem {
       pathR.push(new Vector3(p.x + perp.x * half, y, p.z + perp.z * half));
     }
 
-    // Asphalt
+    // ── Asphalt surface ───────────────────────────────────────────────────
     const road = MeshBuilder.CreateRibbon('road', {
-      pathArray: [pathL, pathR],
-      closePath: false,
+      pathArray:       [pathL, pathR],
+      closePath:       false,
       sideOrientation: 2,
     }, this.scene);
     const roadMat = new StandardMaterial('roadMat', this.scene);
@@ -148,7 +135,7 @@ export class RoadSystem {
     roadMat.backFaceCulling = false;
     road.material = roadMat;
 
-    // Solid yellow centre line ribbon
+    // ── Solid yellow centre line ──────────────────────────────────────────
     const cL = [], cR = [];
     for (let i = 0; i < this.points.length; i++) {
       const p    = this.points[i];
@@ -159,7 +146,9 @@ export class RoadSystem {
       cR.push(new Vector3(p.x + perp.x * hw, y, p.z + perp.z * hw));
     }
     const centre = MeshBuilder.CreateRibbon('centre', {
-      pathArray: [cL, cR], closePath: false, sideOrientation: 2,
+      pathArray:       [cL, cR],
+      closePath:       false,
+      sideOrientation: 2,
     }, this.scene);
     const cMat = new StandardMaterial('centreMat', this.scene);
     cMat.diffuseColor    = new Color3(1.0, 0.85, 0.0);
@@ -167,7 +156,7 @@ export class RoadSystem {
     cMat.backFaceCulling = false;
     centre.material = cMat;
 
-    // White edge ribbons
+    // ── White edge ribbons ────────────────────────────────────────────────
     [pathL, pathR].forEach((path, s) => {
       const eL = [], eR = [];
       for (let i = 0; i < path.length; i++) {
@@ -180,7 +169,9 @@ export class RoadSystem {
         eR.push(new Vector3(p.x - perp.x * dir * hw, y, p.z - perp.z * dir * hw));
       }
       const edge = MeshBuilder.CreateRibbon('edge' + s, {
-        pathArray: [eL, eR], closePath: false, sideOrientation: 2,
+        pathArray:       [eL, eR],
+        closePath:       false,
+        sideOrientation: 2,
       }, this.scene);
       const em = new StandardMaterial('edgeMat' + s, this.scene);
       em.diffuseColor    = new Color3(0.95, 0.95, 0.95);
@@ -189,7 +180,7 @@ export class RoadSystem {
       edge.material = em;
     });
 
-    // Lane dashes — both sides of centre
+    // ── Lane dashes ───────────────────────────────────────────────────────
     const laneOff = ROAD_WIDTH * 0.25;
     for (let i = 0; i < this.points.length - 10; i += 14) {
       const a    = this.points[i];
@@ -216,13 +207,15 @@ export class RoadSystem {
       });
     }
 
-    // Natural grass verges
+    // ── Natural grass verges ──────────────────────────────────────────────
     [
       { path: pathL, name: 'vergeL', dir: -1 },
       { path: pathR, name: 'vergeR', dir:  1 },
     ].forEach(({ path, name, dir }) => {
-      const vIn = [], vOut = [];
-      const vW  = 16;
+      const vIn  = [];
+      const vOut = [];
+      const vW   = 16;
+
       for (let i = 0; i < path.length; i++) {
         const p    = path[i];
         const perp = this._perp(i);
@@ -235,8 +228,11 @@ export class RoadSystem {
         vIn.push(new Vector3(p.x, p.y - 0.01, p.z));
         vOut.push(new Vector3(ox, oy, oz));
       }
+
       const verge = MeshBuilder.CreateRibbon(name, {
-        pathArray: [vIn, vOut], closePath: false, sideOrientation: 2,
+        pathArray:       [vIn, vOut],
+        closePath:       false,
+        sideOrientation: 2,
       }, this.scene);
       const vm = new StandardMaterial(name + 'Mat', this.scene);
       vm.diffuseColor    = new Color3(0.26, 0.46, 0.16);
