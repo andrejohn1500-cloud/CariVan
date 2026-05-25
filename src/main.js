@@ -135,7 +135,7 @@ _roads = [];
     _camera.lowerBetaLimit   = 0.2;
     _camera.upperBetaLimit   = 1.45;
     _camera.lowerRadiusLimit = 8;
-    _camera.upperRadiusLimit = 80;
+    _camera.upperRadiusLimit = 300;
     _camera.attachControl(canvas, true);
 
     // Smooth camera follow
