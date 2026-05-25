@@ -89,7 +89,7 @@ export class VanController {
   //  GLB LOADER
   // ═══════════════════════════════════════════════════════════════════════
   _tryLoadGLB() {
-    SceneLoader.ImportMeshAsync('', './assets/', 'van_caravan.glb', this.scene)
+    SceneLoader.ImportMeshAsync('', './assets/', 'Honda Civic_fd2.glb', this.scene)
       .then(result => {
         result.meshes.forEach(m => {
           m.parent = this._bodyNode;
