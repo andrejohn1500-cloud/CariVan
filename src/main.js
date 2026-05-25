@@ -99,8 +99,8 @@ window._startCariVan = async function(vehicleType, missionType) {
     renderJunctions(_scene, terrain, roadData);
 
     // ── World props ──────────────────────────────────────────────────────────
-    setProgress(72, 'Building Argyle Airport…');
-    buildArgyleAirport(_scene, terrain);
+    setProgress(72, 'Skipping airport for now…');
+// buildArgyleAirport(_scene, terrain);
 
     // ── Van spawn — Kingstown centre ─────────────────────────────────────────
     setProgress(80, 'Spawning van…');
