@@ -30,13 +30,12 @@ export class VanController {
     this.steerAngle = 0;
     this.heading = 0;
     this.bodyRoll = 0;
-    this.bodyPitch = 0;
     this.suspVelocity = 0;
     this.engineRpm = 800;
     this.gear = 1;
     this.wheelSpin = [0, 0, 0, 0];
     this.skidding = false;
-    this.skidIntensity = 0;
+    this._joystickActive = false;
 
     this.input = {
       throttle: 0, brake: 0,
@@ -69,20 +68,17 @@ export class VanController {
           m.parent = this._bodyNode;
           m.receiveShadows = true;
         });
-        // Face forward correctly
         this._bodyNode.rotation.y = Math.PI;
         this._bodyNode.rotation.x = Math.PI;
         this._bodyNode.rotation.z = 0;
-        const scale = 1.0;
-        this._bodyNode.scaling = new Vector3(scale, scale, scale);
+        this._bodyNode.scaling = new Vector3(1, 1, 1);
         this._bodyNode.position.y = CFG.suspensionHeight;
-        // Hide procedural wheels when GLB loads
         this._wheelNodes.forEach(n => { if (n) n.setEnabled(false); });
         this._glbLoaded = true;
-        console.log('✅ subaru_impreza.glb loaded');
+        console.log('subaru_impreza.glb loaded');
       })
       .catch(err => {
-        console.warn('GLB not found — using procedural van:', err);
+        console.warn('GLB not found:', err);
         this._buildProceduralVan();
       });
   }
@@ -103,7 +99,6 @@ export class VanController {
     const bodyMat = this._mat('body', '#ECECE8', 0.25);
     const glassMat = this._mat('glass', '#1A2B3C', 0.60);
     const chromeMat = this._mat('chrome', '#C0C0C0', 0.90);
-
     const mk = (n, w, h, d, x, y, z, mat) => {
       const b = MeshBuilder.CreateBox(n, { width: w, height: h, depth: d }, sc);
       b.material = mat;
@@ -111,7 +106,6 @@ export class VanController {
       b.parent = root;
       return b;
     };
-
     mk('body', 2.1, 2.1, 5.0, 0, 1.2, 0, bodyMat);
     mk('screen', 1.75, 1.0, 0.06, 0, 1.75, -2.53, glassMat);
     mk('fBumper', 2.2, 0.22, 0.2, 0, 0.35, -2.72, chromeMat);
@@ -123,34 +117,29 @@ export class VanController {
     const sc = this.scene;
     const tireMat = this._mat('tire', '#1A1A1A', 0.05);
     const rimMat = this._mat('rim', '#C9A84C', 0.80);
-
     const positions = [
       { x: -1.12, z: -1.6, front: true },
       { x: 1.12, z: -1.6, front: true },
       { x: -1.12, z: 1.5, front: false },
       { x: 1.12, z: 1.5, front: false },
     ];
-
     positions.forEach((pos, i) => {
       const node = new TransformNode('wheelNode' + i, sc);
       node.parent = this.root;
       node.position = new Vector3(pos.x, CFG.suspensionHeight, pos.z);
       node.isFront = pos.front;
-
       const tire = MeshBuilder.CreateCylinder('tire' + i, {
         diameter: 0.84, height: 0.38, tessellation: 24
       }, sc);
       tire.material = tireMat;
       tire.rotation.z = Math.PI / 2;
       tire.parent = node;
-
       const rim = MeshBuilder.CreateCylinder('rim' + i, {
         diameter: 0.52, height: 0.39, tessellation: 18
       }, sc);
       rim.material = rimMat;
       rim.rotation.z = Math.PI / 2;
       rim.parent = node;
-
       this._wheelNodes.push(node);
       this._wheelMeshes.push(tire);
     });
@@ -165,19 +154,28 @@ export class VanController {
     window.addEventListener('keyup', e => { keys[e.key] = false; });
 
     this._pollKeys = () => {
-      this.input.throttle = (keys['ArrowUp'] || keys['w'] || keys['W']) ? 1 : 0;
-      this.input.brake = (keys['ArrowDown'] || keys['s'] || keys['S']) ? 1 : 0;
-      this.input.steerL = (keys['ArrowLeft'] || keys['a'] || keys['A']) ? 1 : 0;
-      this.input.steerR = (keys['ArrowRight'] || keys['d'] || keys['D']) ? 1 : 0;
-      this.input.handbrake = (keys['Shift'] || keys['e'] || keys['E']) ? 1 : 0;
+      const t  = (keys['ArrowUp']    || keys['w'] || keys['W']) ? 1 : 0;
+      const b  = (keys['ArrowDown']  || keys['s'] || keys['S']) ? 1 : 0;
+      const sl = (keys['ArrowLeft']  || keys['a'] || keys['A']) ? 1 : 0;
+      const sr = (keys['ArrowRight'] || keys['d'] || keys['D']) ? 1 : 0;
+      const hb = (keys['Shift']      || keys['e'] || keys['E']) ? 1 : 0;
+      if (t || b || sl || sr || hb) {
+        this.input.throttle  = t;
+        this.input.brake     = b;
+        this.input.steerL    = sl;
+        this.input.steerR    = sr;
+        this.input.handbrake = hb;
+        this._joystickActive = false;
+      }
     };
   }
 
   setJoystick(nx, ny) {
+    this._joystickActive = true;
     this.input.throttle = Math.max(0, -ny);
-    this.input.brake = Math.max(0, ny);
-    this.input.steerL = Math.max(0, -nx);
-    this.input.steerR = Math.max(0, nx);
+    this.input.brake    = Math.max(0,  ny);
+    this.input.steerL   = Math.max(0, -nx);
+    this.input.steerR   = Math.max(0,  nx);
   }
 
   setHandbrake(v) { this.input.handbrake = v ? 1 : 0; }
@@ -221,15 +219,14 @@ export class VanController {
 
     const { throttle, brake, steerL, steerR, handbrake } = this.input;
     const speedAbs = Math.abs(this.speed);
-    const speedMs = this.speed / 3.6;
-    const moving = speedAbs > 0.5;
-    const fwdSign = this.speed >= 0 ? 1 : -1;
+    const speedMs  = this.speed / 3.6;
+    const moving   = speedAbs > 0.5;
+    const fwdSign  = this.speed >= 0 ? 1 : -1;
 
-    // Steering
     const steerInput = steerR - steerL;
     const steerBlend = Math.min(speedAbs / CFG.steerSpeedBlend, 1);
-    const steerRate = CFG.steerSpeedLow + (CFG.steerSpeedHigh - CFG.steerSpeedLow) * steerBlend;
-    const steerMax = CFG.steerMaxRad * (1 - steerBlend * 0.45);
+    const steerRate  = CFG.steerSpeedLow + (CFG.steerSpeedHigh - CFG.steerSpeedLow) * steerBlend;
+    const steerMax   = CFG.steerMaxRad * (1 - steerBlend * 0.45);
 
     if (steerInput !== 0) {
       this.steerAngle += steerInput * steerRate * dt;
@@ -240,7 +237,6 @@ export class VanController {
       else this.steerAngle -= Math.sign(this.steerAngle) * ret;
     }
 
-    // Speed
     if (handbrake > 0) {
       this.speed -= Math.sign(this.speed) * CFG.handbrakeForce * dt;
     } else if (brake > 0) {
@@ -256,9 +252,8 @@ export class VanController {
 
     this.speed = Math.max(-CFG.reverseSpeedKph, Math.min(CFG.topSpeedKph, this.speed));
 
-    // Yaw
     if (moving) {
-      const wheelBase = 2.8 * CFG.worldScale;
+      const wheelBase  = 2.8 * CFG.worldScale;
       const turnRadius = wheelBase / Math.tan(Math.abs(this.steerAngle) + 0.0001);
       const angularVel = (speedMs * CFG.worldScale) / turnRadius;
       this.heading += Math.sign(this.steerAngle) * angularVel * fwdSign * dt;
@@ -266,31 +261,27 @@ export class VanController {
 
     this.root.rotation.y = this.heading;
 
-    // Movement — car moves along Z axis (forward)
-    const fwdX = Math.sin(this.heading);
-    const fwdZ = Math.cos(this.heading);
+    const fwdX   = Math.sin(this.heading);
+    const fwdZ   = Math.cos(this.heading);
     const worldSpd = (this.speed / 3.6) * CFG.worldScale;
 
     this.root.position.x += fwdX * worldSpd * dt;
     this.root.position.z += fwdZ * worldSpd * dt;
 
-    // Terrain
     const groundY = this._getGroundHeight(this.root.position.x, this.root.position.z);
     const targetY = groundY + CFG.suspensionHeight;
-    const diff = targetY - this.root.position.y;
+    const diff    = targetY - this.root.position.y;
     this.suspVelocity += diff * 12 * dt;
     this.suspVelocity *= Math.pow(0.72, dt * 60);
     this.root.position.y += this.suspVelocity * dt;
-    this.root.position.y = Math.max(groundY + 0.3, this.root.position.y);
+    this.root.position.y  = Math.max(groundY + 0.3, this.root.position.y);
 
-    // Body lean
     const targetRoll = -this.steerAngle * CFG.rollFactor * Math.min(speedAbs / 30, 1);
     this.bodyRoll += (targetRoll - this.bodyRoll) * Math.min(dt * 5, 1);
     this._bodyNode.rotation.z = this.bodyRoll;
 
-    // Wheel spin
     const wheelCirc = Math.PI * 0.84;
-    const spinRate = (worldSpd / wheelCirc) * (Math.PI * 2);
+    const spinRate  = (worldSpd / wheelCirc) * (Math.PI * 2);
     this._wheelNodes.forEach((node, i) => {
       if (!node) return;
       this.wheelSpin[i] = (this.wheelSpin[i] || 0) + spinRate * dt;
@@ -298,7 +289,6 @@ export class VanController {
       if (this._wheelMeshes[i]) this._wheelMeshes[i].rotation.x = this.wheelSpin[i];
     });
 
-    // Engine sound
     if (this._audioCtx && this._engineOsc) {
       const freq = 45 + (this.engineRpm || 800) * 0.055;
       this._engineOsc.frequency.setTargetAtTime(freq, this._audioCtx.currentTime, 0.08);
@@ -315,12 +305,11 @@ export class VanController {
     return 0;
   }
 
-  getSpeed() { return Math.round(Math.abs(this.speed)); }
-  getGear() {
+  getSpeed()   { return Math.round(Math.abs(this.speed)); }
+  getGear()    {
     if (this.speed < -0.5) return 'R';
-    const g = ['N', '1', '2', '3', '4', '5'];
-    return g[this.gear] || 'D';
+    return ['N','1','2','3','4','5'][this.gear] || 'D';
   }
-  getRpm() { return Math.round(this.engineRpm || 800); }
+  getRpm()     { return Math.round(this.engineRpm || 800); }
   isSkidding() { return this.skidding; }
 }
