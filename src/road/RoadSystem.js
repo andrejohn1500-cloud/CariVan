@@ -139,7 +139,7 @@ export class RoadSystem {
     // Asphalt
     const road = MeshBuilder.CreateRibbon('road', {
       pathArray: [pathL, pathR],
-      closePath: true,
+      closePath: false,
       sideOrientation: 2,
     }, this.scene);
     const roadMat = new StandardMaterial('roadMat', this.scene);
@@ -159,7 +159,7 @@ export class RoadSystem {
       cR.push(new Vector3(p.x + perp.x * hw, y, p.z + perp.z * hw));
     }
     const centre = MeshBuilder.CreateRibbon('centre', {
-      pathArray: [cL, cR], closePath: true, sideOrientation: 2,
+      pathArray: [cL, cR], closePath: false, sideOrientation: 2,
     }, this.scene);
     const cMat = new StandardMaterial('centreMat', this.scene);
     cMat.diffuseColor    = new Color3(1.0, 0.85, 0.0);
@@ -180,7 +180,7 @@ export class RoadSystem {
         eR.push(new Vector3(p.x - perp.x * dir * hw, y, p.z - perp.z * dir * hw));
       }
       const edge = MeshBuilder.CreateRibbon('edge' + s, {
-        pathArray: [eL, eR], closePath: true, sideOrientation: 2,
+        pathArray: [eL, eR], closePath: false, sideOrientation: 2,
       }, this.scene);
       const em = new StandardMaterial('edgeMat' + s, this.scene);
       em.diffuseColor    = new Color3(0.95, 0.95, 0.95);
@@ -236,7 +236,7 @@ export class RoadSystem {
         vOut.push(new Vector3(ox, oy, oz));
       }
       const verge = MeshBuilder.CreateRibbon(name, {
-        pathArray: [vIn, vOut], closePath: true, sideOrientation: 2,
+        pathArray: [vIn, vOut], closePath: false, sideOrientation: 2,
       }, this.scene);
       const vm = new StandardMaterial(name + 'Mat', this.scene);
       vm.diffuseColor    = new Color3(0.26, 0.46, 0.16);
