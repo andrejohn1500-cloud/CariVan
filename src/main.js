@@ -133,8 +133,8 @@ setTimeout(() => {
     window.gameVan = _van;
 
     // Orange spawn marker — disappears after 5s
-    const marker    = MeshBuilder.CreateBox('marker', { size: 8 }, _scene);
-    marker.position = new Vector3(sx, sy + 4, sz);
+    const marker = MeshBuilder.CreateBox('marker', { size: 4 }, _scene);
+marker.position = new Vector3(sx, sy + 12, sz);
     const markerMat = new StandardMaterial('markerMat', _scene);
     markerMat.diffuseColor  = new Color3(1, 0.2, 0);
     markerMat.emissiveColor = new Color3(0.8, 0.1, 0);
