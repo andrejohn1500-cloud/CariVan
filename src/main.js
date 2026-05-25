@@ -5,11 +5,11 @@ import {
   MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
-import { buildTerrain }                    from './terrain/TerrainMesh.js';
-import { buildOcean }                      from './terrain/OceanPlane.js';
-import { fetchSVGRoads, SVG_ROADS }        from './map/OSMFetcher.js';
-import { VanController }                   from './vehicles/VanController.js';
-import { RoadSystem }                      from './road/RoadSystem.js';
+import { buildTerrain }             from './terrain/TerrainMesh.js';
+import { buildOcean }               from './terrain/OceanPlane.js';
+import { fetchSVGRoads, SVG_ROADS } from './map/OSMFetcher.js';
+import { VanController }            from './vehicles/VanController.js';
+import { RoadSystem }               from './road/RoadSystem.js';
 
 let _engine, _scene, _van, _camera, _roads = [];
 let _paused = false;
@@ -39,7 +39,7 @@ function hideLoading() {
 }
 
 // ── Main game entry point ─────────────────────────────────────────────────────
-window._startCariVan = async function(vehicleType, missionType) {
+window._startCariVan = async function (vehicleType, missionType) {
   try {
     showLoading(missionType);
 
@@ -59,15 +59,15 @@ window._startCariVan = async function(vehicleType, missionType) {
     _scene = new Scene(_engine);
     _scene.clearColor = new Color4(0.42, 0.72, 0.90, 1);
 
-    // ── Lighting ─────────────────────────────────────────────────────────────
+    // ── Lighting ──────────────────────────────────────────────────────────────
     setProgress(8, 'Setting up lighting…');
     const ambient = new HemisphericLight('ambient', new Vector3(0, 1, 0), _scene);
-    ambient.intensity   = 1.0;
+    ambient.intensity   = 1.1;
     ambient.diffuse     = new Color3(1, 0.97, 0.88);
     ambient.groundColor = new Color3(0.25, 0.45, 0.20);
 
-    const sun = new DirectionalLight('sun', new Vector3(-0.4, -1, -0.3), _scene);
-    sun.intensity = 1.0;
+    const sun = new DirectionalLight('sun', new Vector3(-0.5, -1, -0.3), _scene);
+    sun.intensity = 1.2;
 
     // ── Terrain ───────────────────────────────────────────────────────────────
     setProgress(18, 'Loading terrain…');
@@ -109,28 +109,55 @@ window._startCariVan = async function(vehicleType, missionType) {
     setProgress(90, 'Setting up camera…');
     _camera = new ArcRotateCamera(
       'cam',
-      Math.PI / 2,
-      1.0,
-      240,
+      Math.PI / 2,  // alpha — start behind van
+      0.72,          // beta  — 41° angle, sees road ahead + mountains + sky
+      150,           // radius
       new Vector3(sx, sy + 1, sz),
       _scene
     );
     _camera.minZ             = 0.1;
     _camera.maxZ             = 50000;
-    _camera.lowerBetaLimit   = 0.2;
+    _camera.lowerBetaLimit   = 0.25;
     _camera.upperBetaLimit   = 1.45;
-    _camera.lowerRadiusLimit = 8;
+    _camera.lowerRadiusLimit = 40;
     _camera.upperRadiusLimit = 300;
     _camera.attachControl(canvas, true);
 
-    // Smooth camera follow + auto-rotate behind car
+    // ── Smooth camera follow + manual pan with auto-return ────────────────────
+    let _lastCamInput = 0;
+    let _manualCam    = false;
+
+    canvas.addEventListener('pointerdown', () => {
+      _manualCam    = true;
+      _lastCamInput = performance.now();
+    });
+    canvas.addEventListener('pointermove', () => {
+      if (_manualCam) _lastCamInput = performance.now();
+    });
+    canvas.addEventListener('pointerup', () => {
+      _lastCamInput = performance.now();
+    });
+
     _scene.onBeforeRenderObservable.add(() => {
-      if (_van && _camera) {
-        const t = _van.root.position.clone();
-        t.y += 1;
-        _camera.target = Vector3.Lerp(_camera.target, t, 0.1);
-        _camera.alpha += (-_van.heading - Math.PI / 2 - _camera.alpha) * 0.05;
+      if (!_van || !_camera) return;
+
+      // Always follow car position smoothly
+      const t = _van.root.position.clone();
+      t.y += 1;
+      _camera.target = Vector3.Lerp(_camera.target, t, 0.08);
+
+      // Auto-return behind car after 3s of no input
+      const timeSinceInput = performance.now() - _lastCamInput;
+      if (timeSinceInput > 3000) {
+        _manualCam = false;
       }
+
+      if (!_manualCam) {
+        // Smoothly swing camera back behind car
+        const targetAlpha = -_van.heading - Math.PI / 2;
+        _camera.alpha += (targetAlpha - _camera.alpha) * 0.04;
+      }
+      // If _manualCam — player is panning freely, don't touch alpha
     });
 
     // ── Game loop ─────────────────────────────────────────────────────────────
@@ -145,12 +172,17 @@ window._startCariVan = async function(vehicleType, missionType) {
         window.updateHUD(_van.getSpeed(), _van.getGear());
       }
       if (window.updateMinimap) {
-        window.updateMinimap(_van.root.position.x,
-                             _van.root.position.z, _roads);
+        window.updateMinimap(
+          _van.root.position.x,
+          _van.root.position.z,
+          _roads
+        );
       }
       if (window.SM) {
         const spd = _van.getSpeed();
-        window.SM.setWanted(spd > 100 ? 3 : spd > 70 ? 2 : spd > 50 ? 1 : 0);
+        window.SM.setWanted(
+          spd > 100 ? 3 : spd > 70 ? 2 : spd > 50 ? 1 : 0
+        );
       }
 
       _scene.render();
