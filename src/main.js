@@ -85,7 +85,7 @@ window._startCariVan = async function (vehicleType, missionType) {
 
     // ── Van spawn — Kingstown ─────────────────────────────────────────────────
     setProgress(72, 'Spawning van…');
-    const sx = 13195, sz = -21375;
+    const sx = 4600, sz = -9200;
 const sy = 25.5;
 
     _van = new VanController(
