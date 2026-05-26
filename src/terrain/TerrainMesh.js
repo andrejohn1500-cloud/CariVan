@@ -5,8 +5,8 @@ import {
 
 const MAX_HEIGHT = 1234;
 const SUBS       = 200;
-const MAP_W      = 72500;
-const MAP_H      = 112500;
+const MAP_W      = 29000;
+const MAP_H      = 45000;
 
 let _hmBuffer = null;
 let _hmWidth  = 0;
