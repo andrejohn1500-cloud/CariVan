@@ -2,7 +2,7 @@ import { Vector3, MeshBuilder, StandardMaterial, Color3 }
   from '@babylonjs/core';
 import { ROAD_LOOP, COASTAL_MAX_Y } from './RoadNetwork.js';
 
-export const ROAD_WIDTH    = 40;
+export const ROAD_WIDTH    = 80;
 export const ROAD_BOUNDARY = 22;
 export const ROAD_EDGE     = 20;
 
@@ -35,7 +35,7 @@ export class RoadSystem {
     const raw   = ROAD_LOOP.map(([x, z]) => ({ x, z }));
     const pts   = [];
     const N     = raw.length;
-    const STEPS = 80;
+    const STEPS = 40;
 
     for (let i = 0; i < N; i++) {
       const p0 = raw[(i - 1 + N) % N];
