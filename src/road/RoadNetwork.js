@@ -28,4 +28,4 @@ export const FANCY_ROUNDABOUT = {
 };
 
 // Legacy export so RoadSystem still compiles during transition
-export const ROAD_LOOP = [];
+export const ROAD_LOOP = [[5278, -8550], [5278, -8540]];
