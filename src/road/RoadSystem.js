@@ -88,7 +88,7 @@ export class RoadSystem {
     const perp = new Vector3(tang.z, 0, -tang.x);
     const wx   = pos.x + perp.x * lateral;
     const wz   = pos.z + perp.z * lateral;
-    return { position: new Vector3(wx, pos.y + 0.3, wz), heading };
+    return { position: new Vector3(wx, pos.y + 0.1, wz), heading };
   }
 
   findNearestDist(x, z) {
@@ -129,8 +129,8 @@ export class RoadSystem {
       closePath: false, sideOrientation: 2,
     }, this.scene);
     const roadMat = new StandardMaterial('roadMat', this.scene);
-    roadMat.diffuseColor = new Color3(0.55, 0.55, 0.55);
-    roadMat.specularColor   = new Color3(0.04, 0.04, 0.04);
+    roadMat.diffuseColor = new roadMat.diffuseColor = new Color3(0.52, 0.52, 0.52);
+roadMat.specularColor = new Color3(0.12, 0.12, 0.12);
     roadMat.backFaceCulling = false;
     road.material = roadMat;
 
@@ -200,7 +200,7 @@ export class RoadSystem {
       }, this.scene);
       const vm = new StandardMaterial(name+'Mat', this.scene);
       // Natural muted grass — NO neon, NO emissive
-      vm.diffuseColor = new Color3(0.13, 0.28, 0.08);
+      vm.diffuseColor = new Color3(0.12, 0.26, 0.07);
       vm.specularColor   = new Color3(0.01, 0.02, 0.01);
       vm.backFaceCulling = false;
       verge.material = vm;
