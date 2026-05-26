@@ -130,7 +130,6 @@ export class RoadSystem {
     roadMat.specularColor   = new Color3(0.15, 0.15, 0.15);
     roadMat.backFaceCulling = false;
     road.material       = roadMat;
-    road.renderingGroupId = 1;
 
     // ── Yellow centre line ────────────────────────────────────────────────
     const cL = [], cR = [];
@@ -151,7 +150,6 @@ export class RoadSystem {
     cMat.emissiveColor   = new Color3(0.30, 0.24, 0.0);
     cMat.backFaceCulling = false;
     centre.material       = cMat;
-    centre.renderingGroupId = 1;
 
     // ── White edge ribbons ────────────────────────────────────────────────
     [pathL, pathR].forEach((path, s) => {
@@ -174,7 +172,6 @@ export class RoadSystem {
       em.emissiveColor   = new Color3(0.16, 0.16, 0.16);
       em.backFaceCulling = false;
       edge.material       = em;
-      edge.renderingGroupId = 1;
     });
 
     // ── Forest green verges ───────────────────────────────────────────────
@@ -202,7 +199,6 @@ export class RoadSystem {
       vm.specularColor   = new Color3(0.01, 0.02, 0.01);
       vm.backFaceCulling = false;
       verge.material       = vm;
-      verge.renderingGroupId = 1;
     });
   }
 }
