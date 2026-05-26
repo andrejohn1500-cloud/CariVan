@@ -79,16 +79,16 @@ export function buildOcean(scene) {
   mat.alpha          = 0.92;
   ocean.material     = mat;
 
-  // Gentle primary bob
+  // Gentle primary bob — keys match base y of -800
   const anim = new Animation('wave', 'position.y', 30,
     Animation.ANIMATIONTYPE_FLOAT,
     Animation.ANIMATIONLOOPMODE_CYCLE);
   anim.setKeys([
-    { frame:  0, value: -2.2 },
-    { frame: 18, value: -1.5 },
-    { frame: 36, value: -2.4 },
-    { frame: 54, value: -1.7 },
-    { frame: 72, value: -2.2 },
+    { frame:  0, value: -800 },
+    { frame: 18, value: -796 },
+    { frame: 36, value: -802 },
+    { frame: 54, value: -797 },
+    { frame: 72, value: -800 },
   ]);
   ocean.animations = [anim];
   scene.beginAnimation(ocean, 0, 72, true);
@@ -97,7 +97,7 @@ export function buildOcean(scene) {
   const shallows = MeshBuilder.CreateGround('shallows', {
     width: 120000, height: 3500, subdivisions: 6
   }, scene);
-  shallows.position.set(5000, -1.0, 0);
+  shallows.position.set(5000, -790, 0);
 
   const shTex = new DynamicTexture('shallowTex', 256, scene, false);
   const shCtx = shTex.getContext();
@@ -108,6 +108,7 @@ export function buildOcean(scene) {
   sg.addColorStop(1.0, '#22d4b8');
   shCtx.fillStyle = sg;
   shCtx.fillRect(0, 0, 256, 256);
+
   // Ripple lines in shallows
   for (let i = 0; i < 40; i++) {
     const y   = Math.random() * 256;
@@ -123,22 +124,23 @@ export function buildOcean(scene) {
   shTex.update();
   shTex.uScale = 12;
   shTex.vScale = 4;
+
   const shMat = new StandardMaterial('shallowMat', scene);
   shMat.diffuseTexture = shTex;
   shMat.specularColor  = new Color3(0.3, 0.6, 0.55);
   shMat.alpha          = 0.78;
   shallows.material    = shMat;
 
-  // Shallows bob — slightly different phase
+  // Shallows bob — keys match base y of -790
   const shAnim = new Animation('shWave', 'position.y', 30,
     Animation.ANIMATIONTYPE_FLOAT,
     Animation.ANIMATIONLOOPMODE_CYCLE);
   shAnim.setKeys([
-    { frame:  0, value: -1.0 },
-    { frame: 22, value: -0.4 },
-    { frame: 44, value: -1.2 },
-    { frame: 66, value: -0.6 },
-    { frame: 88, value: -1.0 },
+    { frame:  0, value: -790 },
+    { frame: 22, value: -786 },
+    { frame: 44, value: -792 },
+    { frame: 66, value: -788 },
+    { frame: 88, value: -790 },
   ]);
   shallows.animations = [shAnim];
   scene.beginAnimation(shallows, 0, 88, true);
@@ -147,7 +149,8 @@ export function buildOcean(scene) {
   const foam = MeshBuilder.CreateGround('foam', {
     width: 120000, height: 400, subdivisions: 4
   }, scene);
-  foam.position.set(7500, -0.5, 0);
+  foam.position.set(18500, -785, 0);
+
   const fMat = new StandardMaterial('foamMat', scene);
   fMat.diffuseColor  = new Color3(0.92, 0.96, 0.98);
   fMat.specularColor = new Color3(0.1, 0.1, 0.1);
@@ -158,9 +161,9 @@ export function buildOcean(scene) {
     Animation.ANIMATIONTYPE_FLOAT,
     Animation.ANIMATIONLOOPMODE_CYCLE);
   fAnim.setKeys([
-    { frame:  0, value: -0.5 },
-    { frame: 15, value:  0.2 },
-    { frame: 30, value: -0.5 },
+    { frame:  0, value: -785 },
+    { frame: 15, value: -782 },
+    { frame: 30, value: -785 },
   ]);
   foam.animations = [fAnim];
   scene.beginAnimation(foam, 0, 30, true);
@@ -173,12 +176,12 @@ export function buildOcean(scene) {
 
 function _spawnBoats(scene) {
   const fleet = [
-    { x: -5500,  z: -9200,  rot: 0.3,  type: 'fishing' },
-    { x: -4200,  z: -6800,  rot: 1.1,  type: 'sail'    },
-    { x: -6800,  z: -11500, rot: 2.4,  type: 'fishing' },
-    { x: -3800,  z: -4200,  rot: 0.8,  type: 'sail'    },
-    { x: -7200,  z: -7500,  rot: 3.2,  type: 'cargo'   },
-    { x: -5000,  z: -13000, rot: 1.8,  type: 'fishing' },
+    { x:  -8000, z: -18000, rot: 0.3,  type: 'fishing' },
+    { x:  -6000, z: -14000, rot: 1.1,  type: 'sail'    },
+    { x: -10000, z: -22000, rot: 2.4,  type: 'fishing' },
+    { x:  -5500, z: -10000, rot: 0.8,  type: 'sail'    },
+    { x: -11000, z: -16000, rot: 3.2,  type: 'cargo'   },
+    { x:  -7500, z: -26000, rot: 1.8,  type: 'fishing' },
   ];
 
   fleet.forEach((b, i) => {
@@ -191,8 +194,9 @@ function _spawnBoats(scene) {
       height: isCargo ? 80  : 55,
       depth:  isCargo ? 900 : 520,
     }, scene);
-    hull.position.set(b.x, -1.0, b.z);
+    hull.position.set(b.x, -795, b.z);
     hull.rotation.y = b.rot;
+
     const hMat = new StandardMaterial('hullMat'+i, scene);
     hMat.diffuseColor = isCargo
       ? new Color3(0.55, 0.50, 0.45)
@@ -215,7 +219,7 @@ function _spawnBoats(scene) {
 
     // Mast
     const mast = MeshBuilder.CreateCylinder('mast'+i, {
-      height: isSail ? 550 : 320,
+      height:   isSail ? 550 : 320,
       diameter: isCargo ? 28 : 16,
       tessellation: 8,
     }, scene);
@@ -234,12 +238,12 @@ function _spawnBoats(scene) {
       sail.rotation.y = Math.PI / 6;
       sail.parent = mast;
       const sMat = new StandardMaterial('sailMat'+i, scene);
-      sMat.diffuseColor  = new Color3(0.95, 0.93, 0.88);
+      sMat.diffuseColor    = new Color3(0.95, 0.93, 0.88);
       sMat.backFaceCulling = false;
       sail.material = sMat;
     }
 
-    // Cargo containers on cargo ship
+    // Cargo containers
     if (isCargo) {
       const colors = [
         new Color3(0.8, 0.2, 0.1),
@@ -259,22 +263,22 @@ function _spawnBoats(scene) {
       }
     }
 
-    // Individual bob per boat — different phase per boat
+    // Individual bob per boat
     const offset = i * 11;
     const ba = new Animation('boatBob'+i, 'position.y', 30,
       Animation.ANIMATIONTYPE_FLOAT,
       Animation.ANIMATIONLOOPMODE_CYCLE);
     ba.setKeys([
-      { frame: offset,      value: -1.0  },
-      { frame: offset + 20, value:  0.4  },
-      { frame: offset + 40, value: -1.4  },
-      { frame: offset + 60, value:  0.1  },
-      { frame: offset + 80, value: -1.0  },
+      { frame: offset,      value: -795 },
+      { frame: offset + 20, value: -792 },
+      { frame: offset + 40, value: -797 },
+      { frame: offset + 60, value: -793 },
+      { frame: offset + 80, value: -795 },
     ]);
     hull.animations = [ba];
     scene.beginAnimation(hull, 0, 80, true);
 
-    // Gentle yaw rock
+    // Gentle roll
     const ra = new Animation('boatRock'+i, 'rotation.z', 30,
       Animation.ANIMATIONTYPE_FLOAT,
       Animation.ANIMATIONLOOPMODE_CYCLE);
