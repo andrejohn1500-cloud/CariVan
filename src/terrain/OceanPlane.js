@@ -97,7 +97,7 @@ export function buildOcean(scene) {
   const shallows = MeshBuilder.CreateGround('shallows', {
     width: 120000, height: 3500, subdivisions: 6
   }, scene);
-  shallows.position.set(-2800, -1.0, 0);
+  shallows.position.set(5000, -1.0, 0);
 
   const shTex = new DynamicTexture('shallowTex', 256, scene, false);
   const shCtx = shTex.getContext();
@@ -147,7 +147,7 @@ export function buildOcean(scene) {
   const foam = MeshBuilder.CreateGround('foam', {
     width: 120000, height: 400, subdivisions: 4
   }, scene);
-  foam.position.set(-1200, -0.5, 0);
+  foam.position.set(7500, -0.5, 0);
   const fMat = new StandardMaterial('foamMat', scene);
   fMat.diffuseColor  = new Color3(0.92, 0.96, 0.98);
   fMat.specularColor = new Color3(0.1, 0.1, 0.1);
