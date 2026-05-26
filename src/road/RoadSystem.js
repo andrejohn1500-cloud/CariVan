@@ -84,7 +84,7 @@ export class RoadSystem {
     const perp = new Vector3(tang.z, 0, -tang.x);
     const wx   = pos.x + perp.x * lateral;
     const wz   = pos.z + perp.z * lateral;
-    return { position: new Vector3(wx, 23.5, wz), heading };
+    return { position: new Vector3(wx, 25.5, wz), heading };
   }
 
   findNearestDist(x, z) {
