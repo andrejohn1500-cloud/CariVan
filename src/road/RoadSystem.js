@@ -184,8 +184,8 @@ export class RoadSystem {
       for (let i = 0; i < path.length; i++) {
         const p    = path[i];
         const perp = this._perp(i);
-        const ox   = p.x + perp.x * dir * 16;
-        const oz   = p.z + perp.z * dir * 16;
+        const ox   = p.x + perp.x * dir * 8;
+        const oz   = p.z + perp.z * dir * 8;
         vIn.push(new Vector3(p.x, p.y - 0.01, p.z));
         vOut.push(new Vector3(ox, 2.0, oz));
       }
