@@ -6,6 +6,13 @@ export const ROAD_WIDTH    = 80;
 export const ROAD_BOUNDARY = 22;
 export const ROAD_EDGE     = 20;
 
+// Maximum terrain height before a point is considered "in a mountain"
+const MAX_ROAD_HEIGHT = 80;
+// How many units to step toward ocean when clamping
+const COAST_STEP = 120;
+// Max attempts to find a safe coastal position
+const MAX_CLAMP_TRIES = 12;
+
 export class RoadSystem {
   constructor(scene, terrain) {
     this.scene       = scene;
@@ -15,6 +22,38 @@ export class RoadSystem {
     this.cumDist     = this._calcCumDist();
     this.totalLength = this.cumDist[this.cumDist.length - 1];
     this._buildRoadMesh();
+  }
+
+  // ── Safety: query terrain height at world coords ──────────────────────────
+  _terrainH(x, z) {
+    try {
+      const h = this.terrain?.getHeightAtCoordinates?.(x, z);
+      if (h == null || isNaN(h)) return 0;
+      return h;
+    } catch { return 0; }
+  }
+
+  // ── Clamp a point to coastal zone ─────────────────────────────────────────
+  // If the point is in a mountain, nudge it toward the ocean (west = -x)
+  // until it finds safe ground or gives up
+  _clampToCoast(x, z) {
+    let cx = x;
+    const h = this._terrainH(cx, z);
+    if (h <= MAX_ROAD_HEIGHT) return cx; // already safe
+
+    // Determine which coast side to nudge toward
+    // West coast: nudge toward lower x (toward ocean)
+    // East coast: nudge toward higher x (toward ocean)
+    // We detect by whether x < island centre (~4800)
+    const isWestCoast = x < 4800;
+    const nudge = isWestCoast ? -COAST_STEP : COAST_STEP;
+
+    for (let i = 0; i < MAX_CLAMP_TRIES; i++) {
+      cx += nudge;
+      if (this._terrainH(cx, z) <= MAX_ROAD_HEIGHT) return cx;
+    }
+    // Last resort — return original and let it render
+    return x;
   }
 
   _groundY(x, z) {
@@ -32,7 +71,12 @@ export class RoadSystem {
   }
 
   _buildSpline() {
-    const raw   = ROAD_LOOP.map(([x, z]) => ({ x, z }));
+    const raw   = ROAD_LOOP.map(([x, z]) => {
+      // Clamp each raw waypoint to coast before spline
+      const safeX = this._clampToCoast(x, z);
+      return { x: safeX, z };
+    });
+
     const pts   = [];
     const N     = raw.length;
     const STEPS = 40;
@@ -49,8 +93,12 @@ export class RoadSystem {
         const t3 = t2 * t;
         const f  = (a, b, c, d) =>
           0.5*(2*b+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);
-        const x = f(p0.x, p1.x, p2.x, p3.x);
+        let x = f(p0.x, p1.x, p2.x, p3.x);
         const z = f(p0.z, p1.z, p2.z, p3.z);
+
+        // Also clamp each interpolated spline point
+        x = this._clampToCoast(x, z);
+
         pts.push(new Vector3(x, this._groundY(x, z), z));
       }
     }
@@ -119,19 +167,19 @@ export class RoadSystem {
       pathR.push(new Vector3(p.x + perp.x*half, y, p.z + perp.z*half));
     }
 
-    // ── Asphalt — grey road surface ───────────────────────────────────────
+    // ── Asphalt ───────────────────────────────────────────────────────────
     const road = MeshBuilder.CreateRibbon('road', {
       pathArray: [pathL, pathR],
       closePath: false,
       sideOrientation: 2,
     }, this.scene);
     const roadMat = new StandardMaterial('roadMat', this.scene);
-roadMat.diffuseColor     = new Color3(0.50, 0.50, 0.50);
-roadMat.emissiveColor    = new Color3(0.42, 0.42, 0.42);
-roadMat.specularColor    = new Color3(0.08, 0.08, 0.08);
-roadMat.backFaceCulling  = false;
-roadMat.disableLighting  = true;
-road.material            = roadMat;
+    roadMat.diffuseColor    = new Color3(0.50, 0.50, 0.50);
+    roadMat.emissiveColor   = new Color3(0.42, 0.42, 0.42);
+    roadMat.specularColor   = new Color3(0.08, 0.08, 0.08);
+    roadMat.backFaceCulling = false;
+    roadMat.disableLighting = true;
+    road.material           = roadMat;
 
     // ── Yellow centre line ────────────────────────────────────────────────
     const cL = [], cR = [];
@@ -151,7 +199,7 @@ road.material            = roadMat;
     cMat.diffuseColor    = new Color3(1.0, 0.85, 0.0);
     cMat.emissiveColor   = new Color3(0.30, 0.24, 0.0);
     cMat.backFaceCulling = false;
-    centre.material       = cMat;
+    centre.material      = cMat;
 
     // ── White edge ribbons ────────────────────────────────────────────────
     [pathL, pathR].forEach((path, s) => {
@@ -173,7 +221,7 @@ road.material            = roadMat;
       em.diffuseColor    = new Color3(0.95, 0.95, 0.95);
       em.emissiveColor   = new Color3(0.16, 0.16, 0.16);
       em.backFaceCulling = false;
-      edge.material       = em;
+      edge.material      = em;
     });
 
     // ── Forest green verges ───────────────────────────────────────────────
@@ -200,7 +248,7 @@ road.material            = roadMat;
       vm.diffuseColor    = new Color3(0.12, 0.26, 0.07);
       vm.specularColor   = new Color3(0.01, 0.02, 0.01);
       vm.backFaceCulling = false;
-      verge.material       = vm;
+      verge.material     = vm;
     });
   }
 }
