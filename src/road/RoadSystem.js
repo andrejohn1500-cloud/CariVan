@@ -18,12 +18,8 @@ export class RoadSystem {
   }
 
   _groundY(x, z) {
-    try {
-      const h = this.terrain?.getHeightAtCoordinates?.(x, z);
-      if (h == null || isNaN(h)) return 0;
-      return Math.min(h, COASTAL_MAX_Y);
-    } catch { return 0; }
-  }
+  return 2; // Force road flat at coastal sea level
+}
 
   _smoothY(pts, passes) {
     for (let p = 0; p < passes; p++) {
@@ -88,7 +84,7 @@ export class RoadSystem {
     const perp = new Vector3(tang.z, 0, -tang.x);
     const wx   = pos.x + perp.x * lateral;
     const wz   = pos.z + perp.z * lateral;
-    return { position: new Vector3(wx, pos.y + 0.1, wz), heading };
+    return { position: new Vector3(wx, pos.y + 0.5, wz), heading };
   }
 
   findNearestDist(x, z) {
