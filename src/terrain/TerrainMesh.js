@@ -80,3 +80,4 @@ export class TerrainMesh {
     return 25.5;
   }
 }
+export function buildTerrain(scene) { return new TerrainMesh(scene); }
