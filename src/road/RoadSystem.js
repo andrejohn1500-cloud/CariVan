@@ -128,7 +128,7 @@ export class RoadSystem {
     roadMat.diffuseColor = new Color3(0.52, 0.52, 0.52);
 roadMat.specularColor = new Color3(0.12, 0.12, 0.12);
     roadMat.backFaceCulling = false;
-    road.material = roadMat;
+    road.material = roadMat;road.renderingGroupId = 1;
 
     // ── Yellow centre line — single ribbon ───────────────────────────────
     const cL = [], cR = [];
