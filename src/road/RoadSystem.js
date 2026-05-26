@@ -2,7 +2,7 @@ import { Vector3, MeshBuilder, StandardMaterial, Color3 }
   from '@babylonjs/core';
 import { ROAD_LOOP, COASTAL_MAX_Y } from './RoadNetwork.js';
 
-export const ROAD_WIDTH    = 80;
+export const ROAD_WIDTH    = 40;
 export const ROAD_BOUNDARY = 22;
 export const ROAD_EDGE     = 20;
 
