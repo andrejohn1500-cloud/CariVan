@@ -200,7 +200,7 @@ export class RoadSystem {
       }, this.scene);
       const vm = new StandardMaterial(name+'Mat', this.scene);
       // Natural muted grass — NO neon, NO emissive
-      vm.diffuseColor    = new Color3(0.18, 0.32, 0.10);
+      vm.diffuseColor = new Color3(0.13, 0.28, 0.08);
       vm.specularColor   = new Color3(0.01, 0.02, 0.01);
       vm.backFaceCulling = false;
       verge.material = vm;
