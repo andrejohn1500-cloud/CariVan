@@ -111,7 +111,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     _camera.maxZ             = 80000;
     _camera.lowerBetaLimit   = 0.20;
     _camera.upperBetaLimit   = 1.40;
-    _camera.lowerRadiusLimit = 40;
+    _camera.lowerRadiusLimit = 80;
     _camera.upperRadiusLimit = 280;
     _camera.attachControl(canvas, true);
 
