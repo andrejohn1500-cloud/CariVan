@@ -1,8 +1,9 @@
 import { Vector3, MeshBuilder, StandardMaterial, Color3 }
   from '@babylonjs/core';
-import { ROAD_LOOP, COASTAL_MAX_Y } from './RoadNetwork.js';
+import { ROAD_LOOP, COASTAL_MAX_Y, ROUNDABOUT, CALDER_ROUNDABOUT }
+  from './RoadNetwork.js';
 
-export const ROAD_WIDTH    = 80;
+export const ROAD_WIDTH    = 120;
 export const ROAD_BOUNDARY = 22;
 export const ROAD_EDGE     = 20;
 
@@ -15,6 +16,8 @@ export class RoadSystem {
     this.cumDist     = this._calcCumDist();
     this.totalLength = this.cumDist[this.cumDist.length - 1];
     this._buildRoadMesh();
+    this._buildRoundaboutMesh();
+    this._buildCalderRoundaboutMesh();
   }
 
   _groundY(x, z) {
@@ -72,8 +75,8 @@ export class RoadSystem {
       if (this.cumDist[mid + 1] < d) lo = mid + 1;
       else hi = mid;
     }
-    const t    = (d - this.cumDist[lo]) /
-                 (this.cumDist[lo+1] - this.cumDist[lo] + 0.0001);
+    const t   = (d - this.cumDist[lo]) /
+                (this.cumDist[lo+1] - this.cumDist[lo] + 0.0001);
     const pos  = Vector3.Lerp(this.points[lo], this.points[lo+1], t);
     const tang = this.points[lo+1].subtract(this.points[lo]).normalize();
     return { pos, tang, heading: Math.atan2(tang.x, tang.z) };
@@ -104,6 +107,190 @@ export class RoadSystem {
     const prev = this.points[(i - 1 + N) % N];
     const tang = next.subtract(prev).normalize();
     return new Vector3(tang.z, 0, -tang.x);
+  }
+
+  _buildRoundaboutMesh() {
+    const { cx, cz, innerR, outerR, steps } = ROUNDABOUT;
+    const y     = 2.12;
+    const inner = [];
+    const outer = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      inner.push(new Vector3(
+        cx + Math.cos(angle) * innerR, y,
+        cz + Math.sin(angle) * innerR
+      ));
+      outer.push(new Vector3(
+        cx + Math.cos(angle) * outerR, y,
+        cz + Math.sin(angle) * outerR
+      ));
+    }
+
+    const rb    = MeshBuilder.CreateRibbon('arnosRB', {
+      pathArray: [inner, outer],
+      closePath: true,
+      sideOrientation: 2,
+    }, this.scene);
+    const rbMat = new StandardMaterial('arnosRBMat', this.scene);
+    rbMat.diffuseColor    = new Color3(0.50, 0.50, 0.50);
+    rbMat.emissiveColor   = new Color3(0.42, 0.42, 0.42);
+    rbMat.backFaceCulling = false;
+    rbMat.disableLighting = true;
+    rb.material           = rbMat;
+
+    // White outer edge
+    const eIn  = [];
+    const eOut = [];
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      eIn.push(new Vector3(
+        cx + Math.cos(angle) * outerR, y + 0.08,
+        cz + Math.sin(angle) * outerR
+      ));
+      eOut.push(new Vector3(
+        cx + Math.cos(angle) * (outerR + 8), y + 0.08,
+        cz + Math.sin(angle) * (outerR + 8)
+      ));
+    }
+    const edge  = MeshBuilder.CreateRibbon('arnosEdge', {
+      pathArray: [eIn, eOut],
+      closePath: true,
+      sideOrientation: 2,
+    }, this.scene);
+    const eMat  = new StandardMaterial('arnosEdgeMat', this.scene);
+    eMat.diffuseColor    = new Color3(0.95, 0.95, 0.95);
+    eMat.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+    eMat.backFaceCulling = false;
+    edge.material        = eMat;
+
+    // Green centre island
+    const island      = MeshBuilder.CreateDisc('arnosIsland', {
+      radius: innerR - 8, tessellation: steps, sideOrientation: 2,
+    }, this.scene);
+    island.position   = new Vector3(cx, y + 0.05, cz);
+    island.rotation.x = Math.PI / 2;
+    const iMat        = new StandardMaterial('arnosIslandMat', this.scene);
+    iMat.diffuseColor    = new Color3(0.12, 0.45, 0.10);
+    iMat.emissiveColor   = new Color3(0.05, 0.18, 0.04);
+    iMat.backFaceCulling = false;
+    island.material      = iMat;
+
+    // Green verge outside
+    const vIn  = [];
+    const vOut = [];
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      vIn.push(new Vector3(
+        cx + Math.cos(angle) * (outerR + 8), 2.0,
+        cz + Math.sin(angle) * (outerR + 8)
+      ));
+      vOut.push(new Vector3(
+        cx + Math.cos(angle) * (outerR + 80), 2.0,
+        cz + Math.sin(angle) * (outerR + 80)
+      ));
+    }
+    const verge = MeshBuilder.CreateRibbon('arnosVerge', {
+      pathArray: [vIn, vOut],
+      closePath: true,
+      sideOrientation: 2,
+    }, this.scene);
+    const vMat  = new StandardMaterial('arnosVergeMat', this.scene);
+    vMat.diffuseColor    = new Color3(0.12, 0.26, 0.07);
+    vMat.backFaceCulling = false;
+    verge.material       = vMat;
+  }
+
+  _buildCalderRoundaboutMesh() {
+    const { cx, cz, innerR, outerR, steps } = CALDER_ROUNDABOUT;
+    const y     = 2.12;
+    const inner = [];
+    const outer = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      inner.push(new Vector3(
+        cx + Math.cos(angle) * innerR, y,
+        cz + Math.sin(angle) * innerR
+      ));
+      outer.push(new Vector3(
+        cx + Math.cos(angle) * outerR, y,
+        cz + Math.sin(angle) * outerR
+      ));
+    }
+
+    const rb    = MeshBuilder.CreateRibbon('calderRB', {
+      pathArray: [inner, outer],
+      closePath: true,
+      sideOrientation: 2,
+    }, this.scene);
+    const rbMat = new StandardMaterial('calderRBMat', this.scene);
+    rbMat.diffuseColor    = new Color3(0.50, 0.50, 0.50);
+    rbMat.emissiveColor   = new Color3(0.42, 0.42, 0.42);
+    rbMat.backFaceCulling = false;
+    rbMat.disableLighting = true;
+    rb.material           = rbMat;
+
+    // White outer edge
+    const eIn  = [];
+    const eOut = [];
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      eIn.push(new Vector3(
+        cx + Math.cos(angle) * outerR, y + 0.08,
+        cz + Math.sin(angle) * outerR
+      ));
+      eOut.push(new Vector3(
+        cx + Math.cos(angle) * (outerR + 8), y + 0.08,
+        cz + Math.sin(angle) * (outerR + 8)
+      ));
+    }
+    const edge  = MeshBuilder.CreateRibbon('calderEdge', {
+      pathArray: [eIn, eOut],
+      closePath: true,
+      sideOrientation: 2,
+    }, this.scene);
+    const eMat  = new StandardMaterial('calderEdgeMat', this.scene);
+    eMat.diffuseColor    = new Color3(0.95, 0.95, 0.95);
+    eMat.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+    eMat.backFaceCulling = false;
+    edge.material        = eMat;
+
+    // Green centre island
+    const island      = MeshBuilder.CreateDisc('calderIsland', {
+      radius: innerR - 8, tessellation: steps, sideOrientation: 2,
+    }, this.scene);
+    island.position   = new Vector3(cx, y + 0.05, cz);
+    island.rotation.x = Math.PI / 2;
+    const iMat        = new StandardMaterial('calderIslandMat', this.scene);
+    iMat.diffuseColor    = new Color3(0.12, 0.45, 0.10);
+    iMat.emissiveColor   = new Color3(0.05, 0.18, 0.04);
+    iMat.backFaceCulling = false;
+    island.material      = iMat;
+
+    // Green verge outside
+    const vIn  = [];
+    const vOut = [];
+    for (let i = 0; i <= steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      vIn.push(new Vector3(
+        cx + Math.cos(angle) * (outerR + 8), 2.0,
+        cz + Math.sin(angle) * (outerR + 8)
+      ));
+      vOut.push(new Vector3(
+        cx + Math.cos(angle) * (outerR + 60), 2.0,
+        cz + Math.sin(angle) * (outerR + 60)
+      ));
+    }
+    const verge = MeshBuilder.CreateRibbon('calderVerge', {
+      pathArray: [vIn, vOut],
+      closePath: true,
+      sideOrientation: 2,
+    }, this.scene);
+    const vMat  = new StandardMaterial('calderVergeMat', this.scene);
+    vMat.diffuseColor    = new Color3(0.12, 0.26, 0.07);
+    vMat.backFaceCulling = false;
+    verge.material       = vMat;
   }
 
   _buildRoadMesh() {
