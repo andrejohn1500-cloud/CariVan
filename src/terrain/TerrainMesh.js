@@ -15,7 +15,7 @@ export class TerrainMesh {
   _loadGLTF() {
     SceneLoader.ImportMesh(
       '',
-      '/assets/',
+      './assets/',
       'scene.gltf',
       this.scene,
       (meshes) => {
