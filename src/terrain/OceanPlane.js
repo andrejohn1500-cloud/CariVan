@@ -9,7 +9,7 @@ export function buildOcean(scene) {
   const ocean = MeshBuilder.CreateGround('ocean', {
     width: 120000, height: 120000, subdivisions: 12
   }, scene);
-  ocean.position.y = -800;
+  ocean.position.y = -4000;
 
   const SIZE = 512;
   const tex  = new DynamicTexture('oceanTex', SIZE, scene, false);
