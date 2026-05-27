@@ -9,7 +9,7 @@ import {
 // Boeing and modern player cars removed from traffic
 const TRAFFIC_CARS = [
   { file: 'suzuki_swift.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
+    scale: 1.0,   rx: 0, ry: 0, rz: 0 },
 
   { file: '2005_toyota_corolla_luxel.glb',
     scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
