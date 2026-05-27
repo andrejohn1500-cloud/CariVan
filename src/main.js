@@ -5,11 +5,12 @@ import {
   MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
-import { buildTerrain }    from './terrain/TerrainMesh.js';
-import { buildOcean }      from './terrain/OceanPlane.js';
-import { VanController }   from './vehicles/VanController.js';
-import { RoadSystem }      from './road/RoadSystem.js';
-import { TrafficSystem }   from './world/TrafficSystem.js';
+import { buildTerrain }        from './terrain/TerrainMesh.js';
+import { buildOcean }          from './terrain/OceanPlane.js';
+import { VanController }       from './vehicles/VanController.js';
+import { RoadSystem }          from './road/RoadSystem.js';
+import { TrafficSystem }       from './world/TrafficSystem.js';
+import { buildArgyleAirport }  from './world/ArgyleAirport.js';
 
 let _engine, _scene, _van, _camera, _traffic;
 let _paused = false;
@@ -87,6 +88,10 @@ window._startCariVan = async function (vehicleType, missionType) {
     // ── Traffic ───────────────────────────────────────────────────────────────
     setProgress(62, 'Adding island traffic…');
     _traffic = new TrafficSystem(_scene, roadSystem);
+
+    // ── Airport ───────────────────────────────────────────────────────────────
+    setProgress(68, 'Building Argyle International Airport…');
+    buildArgyleAirport(_scene, terrain);
 
     // ── Van spawn — Kingstown ─────────────────────────────────────────────────
     setProgress(72, 'Spawning van…');
