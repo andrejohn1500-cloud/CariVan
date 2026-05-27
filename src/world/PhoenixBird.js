@@ -1,8 +1,8 @@
 import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader } from '@babylonjs/core';
 
-const FLY_AHEAD    = 350;   // units ahead of player on road
-const FLY_HEIGHT   = 80;    // above road level
+const FLY_AHEAD    = 800;   // units ahead of player on road
+const FLY_HEIGHT   = 60;    // above road level
 const FLY_WIDTH    = 600;   // right to left sweep distance
 const FLY_DURATION = 5000;  // ms to complete crossing
 const TRIGGER_FRAC = 0.25;  // fires at 1/4 of road loop
