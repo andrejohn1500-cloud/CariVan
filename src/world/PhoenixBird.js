@@ -1,7 +1,7 @@
 import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader } from '@babylonjs/core';
 
-const FLY_AHEAD    = 1500;  // far enough ahead to see full sweep
+const FLY_AHEAD    = 6500;  // far enough ahead to see full sweep
 const FLY_HEIGHT   = 50;    // eye level, not overhead
 const FLY_WIDTH    = 800;   // wide sweep right to left
 const FLY_DURATION = 6000;  // ms to complete crossing
