@@ -169,7 +169,8 @@ export class RoadSystem {
     }, this.scene);
     const leMat = new StandardMaterial('leftEdgeMat', this.scene);
     leMat.diffuseColor    = new Color3(0.95, 0.95, 0.95);
-    leMat.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+    leMat.emissiveColor   = new Color3(0.85, 0.85, 0.85);
+    leMat.disableLighting = true;
     leMat.backFaceCulling = false;
     leftEdge.material     = leMat;
 
@@ -189,7 +190,8 @@ export class RoadSystem {
     }, this.scene);
     const reMat = new StandardMaterial('rightEdgeMat', this.scene);
     reMat.diffuseColor    = new Color3(0.95, 0.95, 0.95);
-    reMat.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+    reMat.emissiveColor   = new Color3(0.85, 0.85, 0.85);
+    reMat.disableLighting = true;
     reMat.backFaceCulling = false;
     rightEdge.material    = reMat;
 
@@ -214,8 +216,9 @@ export class RoadSystem {
         sideOrientation: 2,
       }, this.scene);
       const vm = new StandardMaterial(name+'Mat', this.scene);
-      vm.diffuseColor    = new Color3(0.45, 0.28, 0.10);
-      vm.specularColor   = new Color3(0.02, 0.01, 0.01);
+      vm.diffuseColor    = new Color3(0.28, 0.18, 0.06);
+      vm.emissiveColor   = new Color3(0.22, 0.14, 0.05);
+      vm.disableLighting = true;
       vm.backFaceCulling = false;
       verge.material     = vm;
     });
