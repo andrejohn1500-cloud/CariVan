@@ -6,30 +6,28 @@ import {
 
 // rx/ry/rz in radians — adjust per vehicle after seeing in game
 // scale — adjust if car appears giant or tiny
+// Boeing and modern player cars removed from traffic
 const TRAFFIC_CARS = [
   { file: 'suzuki_swift.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0, rz: 0 },
+    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
 
   { file: '2005_toyota_corolla_luxel.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0, rz: 0 },
+    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
 
   { file: 'nissan_caravan_detailed_3d_van_model_.glb',
-    scale: 0.012, rx: Math.PI, ry: 0, rz: 0 },
+    scale: 0.012, rx: Math.PI, ry: 0,        rz: 0 },
 
   { file: 'truck_toyota_corsa_b.glb',
-    scale: 0.9,   rx: Math.PI, ry: 0, rz: 0 },
+    scale: 0.9,   rx: 0,       ry: Math.PI,  rz: 0 },
 
   { file: '2020_honda_fit_hybrid_6aa-gr3.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0, rz: 0 },
-
-  { file: 'honda_civic_type_r_tc1__www.vecarz.com.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0, rz: 0 },
+    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
 
   { file: '2009_honda_civic_type_r_fd2_custom.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0, rz: 0 },
+    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
 
   { file: 'mitsubishi_lancer_evolution_6___www.vecarz.com.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0, rz: 0 },
+    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
 ];
 
 const TRAFFIC_COUNT = 7;
@@ -69,7 +67,6 @@ export class TrafficSystem {
           car.root.scaling    = new Vector3(cfg.scale, cfg.scale, cfg.scale);
         })
         .catch(() => {
-          // Fallback box — sized by vehicle type
           const isVan   = cfg.file.includes('caravan');
           const isTruck = cfg.file.includes('truck');
           const w = isTruck ? 2.4 : isVan ? 2.0 : 1.8;
@@ -103,7 +100,7 @@ export class TrafficSystem {
     this.cars.forEach(car => {
       if (!car.alive) return;
 
-      // Move oncoming
+      // Move oncoming — reverse direction
       car.dist -= (car.speed / 3.6) * 10 * dt;
 
       // Wrap loop
@@ -116,8 +113,14 @@ export class TrafficSystem {
       const { position, heading } =
         this.roadSystem.getCarTransform(car.dist, car.lateral);
       car.root.position.copyFrom(position);
-      // Face oncoming — flip heading
-      car.root.rotation.y = heading + Math.PI;
+
+      // Face oncoming direction — base heading flipped
+      // Truck has ry:PI baked in so don't double-flip it
+      if (car.cfg.file.includes('truck')) {
+        car.root.rotation.y = heading;
+      } else {
+        car.root.rotation.y = heading + Math.PI;
+      }
 
       // ── Crash detection ───────────────────────────────────────────────
       if (playerDist !== undefined && playerLateral !== undefined) {
@@ -137,24 +140,24 @@ export class TrafficSystem {
     const pos = car.root.position.clone();
     car.root.setEnabled(false);
 
-    // ── Fireball ─────────────────────────────────────────────────────────
-    const fireball = MeshBuilder.CreateSphere('crash_fire', {
+    // ── Fireball ──────────────────────────────────────────────────────────
+    const fireball = MeshBuilder.CreateSphere('crash_fire_' + car.id, {
       diameter: 40, segments: 6
     }, this.scene);
     fireball.position   = pos.clone();
     fireball.position.y += 15;
-    const fireMat = new StandardMaterial('fireballMat', this.scene);
+    const fireMat = new StandardMaterial('fireballMat_' + car.id, this.scene);
     fireMat.diffuseColor  = new Color3(1.0, 0.3, 0.0);
     fireMat.emissiveColor = new Color3(1.0, 0.4, 0.0);
     fireball.material = fireMat;
 
     // ── Black smoke ───────────────────────────────────────────────────────
-    const smoke = MeshBuilder.CreateSphere('crash_smoke', {
+    const smoke = MeshBuilder.CreateSphere('crash_smoke_' + car.id, {
       diameter: 55, segments: 6
     }, this.scene);
     smoke.position   = pos.clone();
     smoke.position.y += 40;
-    const smokeMat = new StandardMaterial('smokeMat', this.scene);
+    const smokeMat = new StandardMaterial('smokeMat_' + car.id, this.scene);
     smokeMat.diffuseColor  = new Color3(0.1, 0.1, 0.1);
     smokeMat.emissiveColor = new Color3(0.08, 0.08, 0.08);
     smokeMat.alpha = 0.85;
@@ -183,13 +186,13 @@ export class TrafficSystem {
       setTimeout(() => { try { debris.dispose(); } catch(e) {} }, 4000);
     }
 
-    // ── Max wanted level ─────────────────────────────────────────────────
+    // ── Max wanted level ──────────────────────────────────────────────────
     if (window.SM) window.SM.setWanted(3);
 
     // ── Crash sound ───────────────────────────────────────────────────────
     this._crashSound();
 
-    // ── Clean up + respawn ────────────────────────────────────────────────
+    // ── Clean up + respawn ─────────────────────────────────────────────────
     setTimeout(() => { try { fireball.dispose(); } catch(e) {} }, 3000);
     setTimeout(() => {
       try { smoke.dispose(); } catch(e) {}
