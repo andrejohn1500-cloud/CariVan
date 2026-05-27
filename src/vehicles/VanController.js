@@ -38,7 +38,7 @@ export class VanController {
 
     this.roadSystem = roadSystem || null;
     this.roadDist   = 0;
-    this.lateral    = 0;
+    this.lateral    = -30; // spawn in left lane
     this.offRoad    = false;
 
     this.input = {
@@ -229,15 +229,31 @@ export class VanController {
     this.speed = Math.max(-CFG.reverseSpeedKph,
                           Math.min(CFG.topSpeedKph, this.speed));
 
-    // ── Movement ───────────────────────────────────────────────────────────
+    // ── Road movement ──────────────────────────────────────────────────────
     if (this.roadSystem) {
       const latInput = steerR - steerL;
-      this.lateral  += latInput * 18 * dt;
-      this.lateral   = Math.max(-22, Math.min(22, this.lateral));
-      if (latInput === 0)
-        this.lateral *= Math.pow(0.97, dt * 60);
-      this.offRoad = Math.abs(this.lateral) > 20;
 
+      // Natural left-lane drift — hands-off steering on a Caribbean road
+      // Stronger at speed, zero when stopped
+      const speedFactor = Math.min(Math.abs(this.speed) / 40, 1.0);
+      const naturalDrift = -8 * speedFactor * dt;
+
+      // Steering — responsive enough to dodge oncoming traffic
+      const steerForce = latInput * 55 * dt;
+
+      this.lateral += steerForce + (latInput === 0 ? naturalDrift : 0);
+
+      // Road boundaries — left verge -95, right verge +95
+      this.lateral = Math.max(-95, Math.min(95, this.lateral));
+
+      // Soft resistance at left lane edge — stops drifting to verge
+      if (latInput === 0 && this.lateral < -45 && speedFactor > 0.1) {
+        this.lateral += 4 * speedFactor * dt;
+      }
+
+      this.offRoad = Math.abs(this.lateral) > 92;
+
+      // Advance along spline
       const worldSpd = (this.speed / 3.6) * CFG.worldScale;
       this.roadDist += worldSpd * dt;
       if (this.roadDist >= this.roadSystem.totalLength)
@@ -252,6 +268,7 @@ export class VanController {
       this.root.rotation.y = heading;
 
     } else {
+      // ── Free roam fallback ───────────────────────────────────────────────
       const steerInput = steerR - steerL;
       const steerBlend = Math.min(speedAbs / CFG.steerSpeedBlend, 1);
       const steerRate  = CFG.steerSpeedLow +
