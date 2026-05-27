@@ -216,8 +216,8 @@ export class RoadSystem {
         sideOrientation: 2,
       }, this.scene);
       const vm = new StandardMaterial(name+'Mat', this.scene);
-      vm.diffuseColor    = new Color3(0.28, 0.18, 0.06);
-      vm.emissiveColor   = new Color3(0.22, 0.14, 0.05);
+      vm.diffuseColor    = new Color3(0.51, 0.40, 0.22);
+      vm.emissiveColor   = new Color3(0.51, 0.40, 0.22);
       vm.disableLighting = true;
       vm.backFaceCulling = false;
       verge.material     = vm;
