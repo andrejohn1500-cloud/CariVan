@@ -236,7 +236,7 @@ export class VanController {
       // Natural left-lane drift — hands-off steering on a Caribbean road
       // Stronger at speed, zero when stopped
       const speedFactor = Math.min(Math.abs(this.speed) / 40, 1.0);
-      const naturalDrift = -8 * speedFactor * dt;
+      const naturalDrift = Math.abs(this.speed) > 2 ? -8 * speedFactor * dt : 0;
 
       // Steering — responsive enough to dodge oncoming traffic
       const steerForce = latInput * 55 * dt;
