@@ -17,7 +17,7 @@ export function buildArgyleAirport(scene, terrain) {
   _buildTower(scene, root);
   _buildParkingLot(scene, root);
   _buildGroundPlanes(scene, root);
-  _buildLandingPlane(scene, root);
+  // _buildLandingPlane REMOVED — was flying over the road
   _buildPerimeterFence(scene, root);
   _buildWindsock(scene, root);
   _buildRunwayLights(scene, root);
@@ -44,7 +44,6 @@ function _box(name, w, h, d, x, y, z, mat, parent, scene) {
   return b;
 }
 
-// ── Load Boeing GLB ───────────────────────────────────────────────────────────
 function _loadPlaneGLB(name, file, x, y, z, rotY, scale, scene, parent) {
   const node = new TransformNode(name, scene);
   node.position.set(x, y, z);
@@ -61,14 +60,13 @@ function _loadPlaneGLB(name, file, x, y, z, rotY, scale, scene, parent) {
       console.log(name + ' loaded ✅');
     })
     .catch(err => {
-      console.warn(name + ' GLB failed, using fallback:', err.message);
+      console.warn(name + ' GLB failed, using fallback');
       _buildFallbackPlane(name + '_fb', scene, node);
     });
 
   return node;
 }
 
-// Simple fallback if GLB fails
 function _buildFallbackPlane(name, scene, parent) {
   const mat = new StandardMaterial(name+'_mat', scene);
   mat.diffuseColor = new Color3(0.9, 0.9, 0.88);
@@ -97,19 +95,16 @@ function _buildFallbackPlane(name, scene, parent) {
   tail.material = mat;
 }
 
-// ── Runway ────────────────────────────────────────────────────────────────────
 function _buildRunway(scene, root) {
   const rw = _box('runway', 200, 1, 3000,
     0, 0.5, 0, _mat('rwMat', '#1a1a1a', scene, 0.04), root, scene);
 
-  // Centre dashes
   for (let i = -1400; i < 1400; i += 120) {
-    const dash = _box('rwDash_'+i, 2.5, 1.2, 65,
+    _box('rwDash_'+i, 2.5, 1.2, 65,
       0, 0.7, i, _mat('rwDashMat', '#ffffff', scene, 0.1,
         new Color3(0.2, 0.2, 0.2)), root, scene);
   }
 
-  // Threshold markings both ends
   [-1, 1].forEach(end => {
     for (let lane = -3; lane <= 3; lane++) {
       _box('thresh_'+end+'_'+lane, 12, 1.2, 50,
@@ -118,23 +113,19 @@ function _buildRunway(scene, root) {
     }
   });
 
-  // Taxiway
   _box('taxiway', 650, 0.8, 65,
     220, 0.4, -450,
     _mat('taxiMat', '#222222', scene, 0.03), root, scene);
 
-  // Taxiway yellow line
   _box('taxiLine', 650, 1.0, 3,
     220, 0.9, -450,
     _mat('taxiLineMat', '#f0c800', scene, 0.1,
       new Color3(0.3, 0.25, 0)), root, scene);
 
-  // Apron
   _box('apron', 750, 0.6, 450,
     280, 0.3, -650,
     _mat('apronMat', '#2a2a2a', scene, 0.03), root, scene);
 
-  // Runway numbers — painted boxes
   [-1380, 1380].forEach((z, idx) => {
     _box('rnum_'+idx, 30, 1.2, 45,
       0, 0.8, z,
@@ -143,43 +134,35 @@ function _buildRunway(scene, root) {
   });
 }
 
-// ── Terminal ──────────────────────────────────────────────────────────────────
 function _buildTerminal(scene, root) {
-  // Main body
   _box('terminal', 650, 85, 190,
     270, 42, -780,
     _mat('termMat', '#d8cfc0', scene, 0.15), root, scene);
 
-  // Roof
   _box('termRoof', 690, 9, 210,
     270, 88, -780,
     _mat('roofMat', '#8a7a60', scene, 0.08), root, scene);
 
-  // Glass facade
   const gfb = _box('termGlass', 620, 62, 8,
     270, 36, -876,
     _mat('glassMat', '#6090a8', scene, 0.8), root, scene);
   const gm = scene.getMaterialByName('glassMat');
   if (gm) gm.alpha = 0.72;
 
-  // Gates
   for (let g = 0; g < 5; g++) {
     const gx = -280 + g * 140;
     _box('gate_'+g, 85, 52, 130,
       gx, 26, -720,
       _mat('gateMat'+g, '#cfc8b8', scene, 0.1), root, scene);
-    // Jetway
     _box('jetway_'+g, 8, 13, 90,
       gx + 22, 19, -666,
       _mat('jetwayMat'+g, '#909090', scene, 0.2), root, scene);
   }
 
-  // Check-in annex
   _box('checkin', 220, 58, 110,
     580, 29, -750,
     _mat('checkinMat', '#d0c8b8', scene, 0.12), root, scene);
 
-  // Canopy pillars
   for (let c = 0; c < 7; c++) {
     const cx = -280 + c * 96;
     _box('canopy_'+c, 8, 5, 65,
@@ -190,20 +173,17 @@ function _buildTerminal(scene, root) {
       _mat('pillarMat', '#c0b8a8', scene, 0.1), root, scene);
   }
 
-  // Airport name sign
   _box('airportSign', 320, 22, 5,
     270, 95, -876,
     _mat('signMat', '#003366', scene, 0.1,
       new Color3(0, 0.18, 0.45)), root, scene);
 
-  // Departure board glow strip
   _box('depBoard', 180, 18, 4,
     270, 55, -877,
     _mat('depMat', '#001133', scene, 0.1,
       new Color3(0.0, 0.3, 0.8)), root, scene);
 }
 
-// ── Control Tower ─────────────────────────────────────────────────────────────
 function _buildTower(scene, root) {
   _box('towerBase', 45, 22, 45,
     520, 11, -850,
@@ -213,7 +193,6 @@ function _buildTower(scene, root) {
     520, 142, -850,
     _mat('towerShaftMat', '#d0c8b8', scene, 0.12), root, scene);
 
-  // Cab
   _box('towerCab', 58, 38, 58,
     520, 280, -850,
     _mat('towerCabMat', '#5888a0', scene, 0.9,
@@ -221,12 +200,10 @@ function _buildTower(scene, root) {
   const cabMat = scene.getMaterialByName('towerCabMat');
   if (cabMat) cabMat.alpha = 0.72;
 
-  // Roof cap
   _box('towerRoof', 65, 9, 65,
     520, 302, -850,
     _mat('towerRoofMat', '#404040', scene, 0.05), root, scene);
 
-  // Antenna
   const ant = MeshBuilder.CreateCylinder('antenna', {
     height: 65, diameter: 3, tessellation: 8
   }, scene);
@@ -234,7 +211,6 @@ function _buildTower(scene, root) {
   ant.parent = root;
   ant.material = _mat('antMat', '#c0c0c0', scene, 0.5);
 
-  // Flashing beacon
   const beacon = MeshBuilder.CreateSphere('beacon', { diameter: 9 }, scene);
   beacon.position.set(520, 372, -850);
   beacon.parent = root;
@@ -252,7 +228,6 @@ function _buildTower(scene, root) {
   beacon.animations = [flash];
   scene.beginAnimation(beacon, 0, 60, true);
 
-  // Secondary white strobe
   const strobe = MeshBuilder.CreateSphere('strobe', { diameter: 6 }, scene);
   strobe.position.set(520, 365, -850);
   strobe.parent = root;
@@ -270,13 +245,11 @@ function _buildTower(scene, root) {
   scene.beginAnimation(strobe, 0, 60, true);
 }
 
-// ── Parking Lot ───────────────────────────────────────────────────────────────
 function _buildParkingLot(scene, root) {
   _box('parking', 550, 0.5, 300,
     -220, 0.3, -840,
     _mat('lotMat', '#282828', scene, 0.03), root, scene);
 
-  // Bay lines
   for (let row = 0; row < 4; row++) {
     for (let col = 0; col < 10; col++) {
       _box('bay_'+row+'_'+col, 2, 1, 52,
@@ -285,7 +258,6 @@ function _buildParkingLot(scene, root) {
     }
   }
 
-  // Cars from real GLBs
   const lotCars = [
     { x: -420, z: -730, file: '2005_toyota_corolla_luxel.glb',        scale: 0.9 },
     { x: -370, z: -730, file: '2023_toyota_rav4_hybrid.glb',           scale: 0.9 },
@@ -308,7 +280,6 @@ function _buildParkingLot(scene, root) {
       .catch(() => {});
   });
 
-  // Street lights
   for (let l = 0; l < 5; l++) {
     const lx = -420 + l * 110;
     const pole = MeshBuilder.CreateCylinder('lotPole_'+l, {
@@ -324,110 +295,39 @@ function _buildParkingLot(scene, root) {
         new Color3(0.7, 0.7, 0.35)), root, scene);
   }
 
-  // Entrance road
   _box('lotEntrance', 65, 0.5, 130,
     -470, 0.4, -678,
     _mat('entranceMat', '#1a1a1a', scene, 0.02), root, scene);
 }
 
-// ── Ground Planes — Boeing GLBs ───────────────────────────────────────────────
+// ── Ground Planes — scale fixed, stays within airport boundary ────────────────
 function _buildGroundPlanes(scene, root) {
-  // Boeing 787 parked at gate — Singapore Airlines livery
+  // Scale 0.004 keeps planes at realistic size within airport perimeter
   _loadPlaneGLB(
     'plane_gate_1',
     'boeing_787-9_singapore_airlines.glb',
     -60, 1, -520,
-    0, 0.012,
+    0, 0.004,
     scene, root
   );
 
-  // Boeing E-767 parked further down apron
   _loadPlaneGLB(
     'plane_gate_2',
     'boeing_e-767_-_.free (1).glb',
     80, 1, -540,
-    0.08, 0.012,
+    0.08, 0.004,
     scene, root
   );
 
-  // Third plane taxiing — slightly angled
   _loadPlaneGLB(
     'plane_taxi',
     'boeing_787-9_singapore_airlines.glb',
     180, 1, -400,
-    -0.4, 0.012,
+    -0.4, 0.004,
     scene, root
   );
 }
 
-// ── Landing Plane — animated approach ────────────────────────────────────────
-function _buildLandingPlane(scene, root) {
-  const node = _loadPlaneGLB(
-    'landing_plane',
-    'boeing_787-9_singapore_airlines.glb',
-    -900, 420, -1900,
-    0, 0.014,
-    scene, root
-  );
-
-  // Smooth approach descent
-  const posY = new Animation('approachY', 'position.y', 30,
-    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  posY.setKeys([
-    { frame:   0, value: 420  },
-    { frame: 160, value:  90  },
-    { frame: 280, value:   2  },
-    { frame: 440, value:   2  },
-    { frame: 560, value: 420  },
-  ]);
-
-  const posZ = new Animation('approachZ', 'position.z', 30,
-    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  posZ.setKeys([
-    { frame:   0, value: -1900 },
-    { frame: 160, value: -1000 },
-    { frame: 280, value:  -100 },
-    { frame: 440, value:  1500 },
-    { frame: 560, value: -1900 },
-  ]);
-
-  const posX = new Animation('approachX', 'position.x', 30,
-    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  posX.setKeys([
-    { frame:   0, value: -900 },
-    { frame: 280, value:    0 },
-    { frame: 440, value:    0 },
-    { frame: 560, value: -900 },
-  ]);
-
-  // Nose pitch down on approach
-  const pitch = new Animation('pitch', 'rotation.x', 30,
-    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  pitch.setKeys([
-    { frame:   0, value:  0.00  },
-    { frame: 160, value:  0.10  },
-    { frame: 280, value:  0.00  },
-    { frame: 440, value:  0.00  },
-    { frame: 560, value:  0.00  },
-  ]);
-
-  // Wing gentle rock on approach
-  const roll = new Animation('roll', 'rotation.z', 30,
-    Animation.ANIMATIONTYPE_FLOAT, Animation.ANIMATIONLOOPMODE_CYCLE);
-  roll.setKeys([
-    { frame:   0, value:  0.00  },
-    { frame:  60, value:  0.03  },
-    { frame: 120, value: -0.02  },
-    { frame: 200, value:  0.01  },
-    { frame: 280, value:  0.00  },
-    { frame: 560, value:  0.00  },
-  ]);
-
-  node.animations = [posY, posZ, posX, pitch, roll];
-  scene.beginAnimation(node, 0, 560, true);
-}
-
-// ── Runway Edge Lights ────────────────────────────────────────────────────────
 function _buildRunwayLights(scene, root) {
   for (let z = -1380; z <= 1380; z += 120) {
     [-105, 105].forEach(x => {
@@ -441,7 +341,6 @@ function _buildRunwayLights(scene, root) {
     });
   }
 
-  // Threshold red lights
   [-1, 1].forEach(end => {
     for (let x = -90; x <= 90; x += 22) {
       const tl = MeshBuilder.CreateSphere('thLight_'+end+'_'+x, {
@@ -454,9 +353,8 @@ function _buildRunwayLights(scene, root) {
     }
   });
 
-  // PAPI approach lights — 4 red/white boxes left of runway
   for (let p = 0; p < 4; p++) {
-    const papi = _box('papi_'+p, 8, 5, 8,
+    _box('papi_'+p, 8, 5, 8,
       -140, 3, -600 + p * 18,
       _mat('papiMat_'+p, p < 2 ? '#ff2200' : '#ffffff', scene, 0.1,
         p < 2
@@ -466,7 +364,6 @@ function _buildRunwayLights(scene, root) {
   }
 }
 
-// ── Perimeter Fence ───────────────────────────────────────────────────────────
 function _buildPerimeterFence(scene, root) {
   [
     { x: -520, z: -1450, w: 1100, d: 4  },
@@ -480,7 +377,6 @@ function _buildPerimeterFence(scene, root) {
   });
 }
 
-// ── Windsock ──────────────────────────────────────────────────────────────────
 function _buildWindsock(scene, root) {
   const pole = MeshBuilder.CreateCylinder('wsPole', {
     height: 130, diameter: 4, tessellation: 8
