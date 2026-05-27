@@ -261,7 +261,7 @@ function _buildParkingLot(scene, root) {
   const lotCars = [
     { x: -420, z: -730, file: '2005_toyota_corolla_luxel.glb',        scale: 0.9 },
     { x: -370, z: -730, file: '2023_toyota_rav4_hybrid.glb',           scale: 0.9 },
-    { x: -320, z: -730, file: 'mitsubishi_lancer_evolution_6___www.vecarz.com.glb', scale: 0.9 },
+    { x: -320, z: -730, file: 'mitsubishi_lancer_evolution_6__www.vecarz.com.glb',
     { x: -270, z: -730, file: '2005_toyota_corolla_luxel.glb',         scale: 0.9 },
     { x: -420, z: -810, file: 'honda_civic_malaysia_police_car.glb',   scale: 0.9 },
     { x: -370, z: -810, file: '2023_toyota_rav4_hybrid.glb',           scale: 0.9 },
