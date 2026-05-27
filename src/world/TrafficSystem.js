@@ -9,25 +9,25 @@ import {
 // Boeing and modern player cars removed from traffic
 const TRAFFIC_CARS = [
   { file: 'suzuki_swift.glb',
-    scale: 1.0,   rx: 0, ry: 0, rz: 0 },
+    scale: 1.0,  rx: 0,        ry: 0,       rz: 0 },
 
   { file: '2005_toyota_corolla_luxel.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
+    scale: 1.0,  rx: Math.PI,  ry: 0,       rz: 0 },
 
   { file: 'nissan_caravan_detailed_3d_van_model_.glb',
-    scale: 0.012, rx: Math.PI, ry: 0,        rz: 0 },
+    scale: 1.2,  rx: Math.PI,  ry: 0,       rz: 0 },
 
   { file: 'truck_toyota_corsa_b.glb',
-    scale: 0.9,   rx: 0,       ry: Math.PI,  rz: 0 },
+    scale: 0.9,  rx: 0,        ry: Math.PI, rz: 0 },
 
   { file: '2020_honda_fit_hybrid_6aa-gr3.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
+    scale: 1.0,  rx: Math.PI,  ry: 0,       rz: 0 },
 
   { file: '2009_honda_civic_type_r_fd2_custom.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
+    scale: 1.0,  rx: Math.PI,  ry: 0,       rz: 0 },
 
-  { file: 'mitsubishi_lancer_evolution_6___www.vecarz.com.glb',
-    scale: 1.0,   rx: Math.PI, ry: 0,        rz: 0 },
+  { file: 'mitsubishi_lancer_evolution_6__www.vecarz.com.glb',
+    scale: 1.0,  rx: Math.PI,  ry: 0,       rz: 0 },
 ];
 
 const TRAFFIC_COUNT = 7;
