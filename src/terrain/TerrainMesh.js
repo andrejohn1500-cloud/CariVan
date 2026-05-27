@@ -24,21 +24,24 @@ export class TerrainMesh {
         meshes.forEach(mesh => {
           const name = mesh.name.toLowerCase();
 
-          // TERRAIN — scale to match road coords, preserve satellite texture
+          // TERRAIN
           if (name.includes('terrain')) {
             mesh.isPickable = true;
             mesh.checkCollisions = true;
-            // GLTF terrain is ±9694 units, road goes to x:15200 z:12500
-            // Scale 1.6x and recentre to cover full road area
             mesh.scaling = new Vector3(1.6, 1.0, 1.6);
             mesh.position.x = 7500;
             mesh.position.z = 800;
-            // DO NOT override material — keeps TerrainNodeMaterial_baseColor.jpeg
+            const tMat = new StandardMaterial('terrainMat', this.scene);
+            tMat.diffuseColor    = new Color3(0.282, 0.604, 0.231);
+            tMat.emissiveColor   = new Color3(0.282, 0.604, 0.231);
+            tMat.disableLighting = true;
+            tMat.backFaceCulling = false;
+            mesh.material = tMat;
             this.terrainMesh = mesh;
             console.log('[CariVan] TerrainNode ready:', mesh.name);
           }
 
-          // STREETS — lift above terrain to prevent z-fighting
+          // STREETS
           if (name.includes('street')) {
             mesh.isPickable = false;
             mesh.scaling = new Vector3(1.6, 1.0, 1.6);
@@ -80,7 +83,9 @@ export class TerrainMesh {
       width: 40000, height: 40000, subdivisions: 4
     }, this.scene);
     const mat = new StandardMaterial('fallbackMat', this.scene);
-    mat.diffuseColor = new Color3(0.18, 0.38, 0.12);
+    mat.diffuseColor    = new Color3(0.282, 0.604, 0.231);
+    mat.emissiveColor   = new Color3(0.282, 0.604, 0.231);
+    mat.disableLighting = true;
     ground.material = mat;
     ground.position.x = 7500;
     ground.position.y = 0;
