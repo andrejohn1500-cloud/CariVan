@@ -1,10 +1,10 @@
 import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader } from '@babylonjs/core';
 
-const FLY_AHEAD    = 800;   // units ahead of player on road
-const FLY_HEIGHT   = 60;    // above road level
-const FLY_WIDTH    = 600;   // right to left sweep distance
-const FLY_DURATION = 5000;  // ms to complete crossing
+const FLY_AHEAD    = 1500;  // far enough ahead to see full sweep
+const FLY_HEIGHT   = 50;    // eye level, not overhead
+const FLY_WIDTH    = 800;   // wide sweep right to left
+const FLY_DURATION = 6000;  // ms to complete crossing
 const TRIGGER_FRAC = 0.25;  // fires at 1/4 of road loop
 
 export class PhoenixBird {
@@ -26,7 +26,7 @@ export class PhoenixBird {
       (meshes) => {
         if (!meshes.length) return;
         this.root = meshes[0];
-        this.root.scaling   = new Vector3(10, 10, 10);
+        this.root.scaling = new Vector3(4, 4, 4);
         this.root.setEnabled(false);
         console.log('[CariVan] Phoenix loaded');
       },
@@ -38,19 +38,20 @@ export class PhoenixBird {
   update(deltaMs, playerDist) {
     if (!this.root) return;
 
-    const total       = this.roadSystem.totalLength;
-    const triggerDist = total * TRIGGER_FRAC;
+    const total         = this.roadSystem.totalLength;
+    const triggerDist   = total * TRIGGER_FRAC;
+    const triggerWindow = 1200;
 
-    // Trigger once when player crosses 1/4 mark each loop
+    // Trigger when player is within window of 1/4 mark
     if (!this._triggered &&
-        playerDist > triggerDist &&
-        playerDist < triggerDist + 300) {
+        playerDist > triggerDist - 200 &&
+        playerDist < triggerDist + triggerWindow) {
       this._startFlyby(playerDist);
       this._triggered = true;
     }
 
     // Reset for next loop
-    if (this._triggered && playerDist < triggerDist - 600) {
+    if (this._triggered && playerDist < triggerDist - 800) {
       this._triggered = false;
     }
 
@@ -87,7 +88,6 @@ export class PhoenixBird {
       pos.z - perp.z * (FLY_WIDTH / 2)
     );
 
-    // Face direction of travel (right to left)
     this.root.rotation.y = ahead.heading + Math.PI / 2;
     this.root.position   = this._startPos.clone();
     this.root.setEnabled(true);
