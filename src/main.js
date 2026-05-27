@@ -5,17 +5,14 @@ import {
   MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
-import { buildTerrain }        from './terrain/TerrainMesh.js';
-import { buildOcean }          from './terrain/OceanPlane.js';
-import { VanController }       from './vehicles/VanController.js';
-import { RoadSystem }          from './road/RoadSystem.js';
-import { TrafficSystem }       from './world/TrafficSystem.js';
-import { buildArgyleAirport }  from './world/ArgyleAirport.js';
+import { buildTerrain }   from './terrain/TerrainMesh.js';
+import { buildOcean }     from './terrain/OceanPlane.js';
+import { VanController }  from './vehicles/VanController.js';
+import { RoadSystem }     from './road/RoadSystem.js';
 
-let _engine, _scene, _van, _camera, _traffic;
+let _engine, _scene, _van, _camera;
 let _paused = false;
 
-// ── Loading helpers ───────────────────────────────────────────────────────────
 function showLoading(missionType) {
   const el = document.getElementById('loading');
   const p  = document.getElementById('loading-sub');
@@ -39,7 +36,6 @@ function hideLoading() {
   setTimeout(() => { el.style.display = 'none'; }, 600);
 }
 
-// ── Main entry ────────────────────────────────────────────────────────────────
 window._startCariVan = async function (vehicleType, missionType) {
   try {
     showLoading(missionType);
@@ -47,7 +43,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     const canvas = document.getElementById('renderCanvas');
     if (!canvas) throw new Error('Canvas not found');
 
-    if (_scene) { _scene.dispose(); _scene = null; _van = null; _traffic = null; }
+    if (_scene) { _scene.dispose(); _scene = null; _van = null; }
 
     if (!_engine) {
       _engine = new Engine(canvas, true, {
@@ -61,7 +57,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     _scene.clearColor = new Color4(0.52, 0.78, 0.92, 1);
 
     // ── Lighting ──────────────────────────────────────────────────────────────
-    setProgress(8, 'Setting up lighting…');
+    setProgress(10, 'Setting up lighting…');
     const ambient = new HemisphericLight(
       'ambient', new Vector3(0, 1, 0), _scene);
     ambient.intensity   = 1.2;
@@ -73,30 +69,21 @@ window._startCariVan = async function (vehicleType, missionType) {
     sun.intensity = 1.3;
 
     // ── Terrain ───────────────────────────────────────────────────────────────
-    setProgress(15, 'Loading terrain…');
+    setProgress(20, 'Loading terrain…');
     const terrain = await buildTerrain(
-      _scene, msg => setProgress(25, msg));
+      _scene, msg => setProgress(30, msg));
 
     // ── Ocean ─────────────────────────────────────────────────────────────────
-    setProgress(38, 'Filling the Caribbean Sea…');
+    setProgress(45, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
     // ── Road ──────────────────────────────────────────────────────────────────
-    setProgress(52, 'Building island road…');
+    setProgress(60, 'Building island road…');
     const roadSystem = new RoadSystem(_scene, terrain);
 
-    // ── Traffic ───────────────────────────────────────────────────────────────
-    setProgress(62, 'Adding island traffic…');
-    _traffic = new TrafficSystem(_scene, roadSystem);
-
-    // ── Airport ───────────────────────────────────────────────────────────────
-    setProgress(68, 'Building Argyle International Airport…');
-    buildArgyleAirport(_scene, terrain);
-
-    // ── Van spawn — Kingstown ─────────────────────────────────────────────────
-    setProgress(72, 'Spawning van…');
-    const sx = 4600, sz = -9200;
-    const sy = 25.5;
+    // ── Player car ────────────────────────────────────────────────────────────
+    setProgress(80, 'Spawning vehicle…');
+    const sx = 4600, sz = -9200, sy = 25.5;
 
     _van = new VanController(
       _scene, terrain,
@@ -107,14 +94,10 @@ window._startCariVan = async function (vehicleType, missionType) {
     window.gameVan = _van;
 
     // ── Camera ────────────────────────────────────────────────────────────────
-    setProgress(88, 'Setting up camera…');
+    setProgress(90, 'Setting up camera…');
     _camera = new ArcRotateCamera(
-      'cam',
-      Math.PI / 2,
-      0.68,
-      130,
-      new Vector3(sx, sy + 1, sz),
-      _scene
+      'cam', Math.PI / 2, 0.68, 130,
+      new Vector3(sx, sy + 1, sz), _scene
     );
     _camera.minZ             = 0.1;
     _camera.maxZ             = 80000;
@@ -124,12 +107,12 @@ window._startCariVan = async function (vehicleType, missionType) {
     _camera.upperRadiusLimit = 280;
     _camera.attachControl(canvas, true);
 
-    // ── Camera follow + manual pan ────────────────────────────────────────────
+    // ── Camera follow ─────────────────────────────────────────────────────────
     let _lastCamInput = 0;
     let _manualCam    = false;
 
     canvas.addEventListener('pointerdown', () => {
-      _manualCam    = true;
+      _manualCam = true;
       _lastCamInput = performance.now();
     });
     canvas.addEventListener('pointermove', () => {
@@ -144,9 +127,7 @@ window._startCariVan = async function (vehicleType, missionType) {
       const t = _van.root.position.clone();
       t.y += 1;
       _camera.target = Vector3.Lerp(_camera.target, t, 0.08);
-      if (performance.now() - _lastCamInput > 3000) {
-        _manualCam = false;
-      }
+      if (performance.now() - _lastCamInput > 3000) _manualCam = false;
       if (!_manualCam) {
         const targetAlpha = -_van.heading - Math.PI / 2;
         _camera.alpha += (targetAlpha - _camera.alpha) * 0.04;
@@ -162,24 +143,16 @@ window._startCariVan = async function (vehicleType, missionType) {
       last = now;
 
       _van.update(delta);
-      if (_traffic) _traffic.update(delta, _van.roadDist, _van.lateral);
 
-      if (window.updateHUD) {
+      if (window.updateHUD)
         window.updateHUD(_van.getSpeed(), _van.getGear());
-      }
-      if (window.updateMinimap) {
-        window.updateMinimap(
-          _van.root.position.x,
-          _van.root.position.z,
-          []
-        );
-      }
+      if (window.updateMinimap)
+        window.updateMinimap(_van.root.position.x, _van.root.position.z, []);
       if (window.SM) {
         const spd = _van.getSpeed();
-        window.SM.setWanted(
-          spd > 100 ? 3 : spd > 70 ? 2 : spd > 50 ? 1 : 0
-        );
+        window.SM.setWanted(spd > 100 ? 3 : spd > 70 ? 2 : spd > 50 ? 1 : 0);
       }
+
       _scene.render();
     });
 
@@ -197,7 +170,6 @@ window._startCariVan = async function (vehicleType, missionType) {
   }
 };
 
-// ── Controls ──────────────────────────────────────────────────────────────────
 window._pauseGame      = () => { _paused = true;  };
 window._resumeGame     = () => { _paused = false; };
 window._stopGame       = () => { _paused = true;  };
@@ -207,7 +179,6 @@ window._applySettings  = (s) => {};
 window.SM = window.SM ||
   (typeof SM !== 'undefined' ? SM : null);
 
-// ── Auto-hide on first load ───────────────────────────────────────────────────
 (function () {
   const el = document.getElementById('loading');
   if (el) {
