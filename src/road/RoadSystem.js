@@ -3,7 +3,7 @@ import { Vector3, MeshBuilder, StandardMaterial, Color3 }
 import { ROAD_LOOP, COASTAL_MAX_Y, ROUNDABOUT, CALDER_ROUNDABOUT }
   from './RoadNetwork.js';
 
-export const ROAD_WIDTH    = 120;
+export const ROAD_WIDTH    = 200;
 export const ROAD_BOUNDARY = 22;
 export const ROAD_EDGE     = 20;
 
@@ -109,6 +109,122 @@ export class RoadSystem {
     return new Vector3(tang.z, 0, -tang.x);
   }
 
+  _buildRoadMesh() {
+    const half  = ROAD_WIDTH / 2;     // 100 units each side
+    const laneW = ROAD_WIDTH / 4;     // each lane = 50 units
+    const pathL = [];
+    const pathR = [];
+
+    for (let i = 0; i < this.points.length; i++) {
+      const p    = this.points[i];
+      const perp = this._perp(i);
+      const y    = p.y + 0.10;
+      pathL.push(new Vector3(p.x - perp.x*half, y, p.z - perp.z*half));
+      pathR.push(new Vector3(p.x + perp.x*half, y, p.z + perp.z*half));
+    }
+
+    // ── Main road surface ─────────────────────────────────────────────────
+    const road    = MeshBuilder.CreateRibbon('road', {
+      pathArray: [pathL, pathR],
+      closePath: false,
+      sideOrientation: 2,
+    }, this.scene);
+    const roadMat = new StandardMaterial('roadMat', this.scene);
+    roadMat.diffuseColor    = new Color3(0.50, 0.50, 0.50);
+    roadMat.emissiveColor   = new Color3(0.42, 0.42, 0.42);
+    roadMat.specularColor   = new Color3(0.08, 0.08, 0.08);
+    roadMat.backFaceCulling = false;
+    roadMat.disableLighting = true;
+    road.material           = roadMat;
+
+    // ── Centre yellow line (solid double line) ────────────────────────────
+    const cL = [], cR = [];
+    for (let i = 0; i < this.points.length; i++) {
+      const p    = this.points[i];
+      const perp = this._perp(i);
+      const y    = p.y + 0.22;
+      cL.push(new Vector3(p.x - perp.x*2.5, y, p.z - perp.z*2.5));
+      cR.push(new Vector3(p.x + perp.x*2.5, y, p.z + perp.z*2.5));
+    }
+    const centre = MeshBuilder.CreateRibbon('centre', {
+      pathArray: [cL, cR],
+      closePath: false,
+      sideOrientation: 2,
+    }, this.scene);
+    const cMat = new StandardMaterial('centreMat', this.scene);
+    cMat.diffuseColor    = new Color3(1.0, 0.85, 0.0);
+    cMat.emissiveColor   = new Color3(0.30, 0.24, 0.0);
+    cMat.backFaceCulling = false;
+    centre.material      = cMat;
+
+    // ── Left lane white edge line ─────────────────────────────────────────
+    const llL = [], llR = [];
+    for (let i = 0; i < this.points.length; i++) {
+      const p    = this.points[i];
+      const perp = this._perp(i);
+      const y    = p.y + 0.20;
+      llL.push(new Vector3(p.x - perp.x*(half - 4), y, p.z - perp.z*(half - 4)));
+      llR.push(new Vector3(p.x - perp.x*(half - 8), y, p.z - perp.z*(half - 8)));
+    }
+    const leftEdge = MeshBuilder.CreateRibbon('leftEdge', {
+      pathArray: [llL, llR],
+      closePath: false,
+      sideOrientation: 2,
+    }, this.scene);
+    const leMat = new StandardMaterial('leftEdgeMat', this.scene);
+    leMat.diffuseColor    = new Color3(0.95, 0.95, 0.95);
+    leMat.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+    leMat.backFaceCulling = false;
+    leftEdge.material     = leMat;
+
+    // ── Right lane white edge line ────────────────────────────────────────
+    const rlL = [], rlR = [];
+    for (let i = 0; i < this.points.length; i++) {
+      const p    = this.points[i];
+      const perp = this._perp(i);
+      const y    = p.y + 0.20;
+      rlL.push(new Vector3(p.x + perp.x*(half - 8), y, p.z + perp.z*(half - 8)));
+      rlR.push(new Vector3(p.x + perp.x*(half - 4), y, p.z + perp.z*(half - 4)));
+    }
+    const rightEdge = MeshBuilder.CreateRibbon('rightEdge', {
+      pathArray: [rlL, rlR],
+      closePath: false,
+      sideOrientation: 2,
+    }, this.scene);
+    const reMat = new StandardMaterial('rightEdgeMat', this.scene);
+    reMat.diffuseColor    = new Color3(0.95, 0.95, 0.95);
+    reMat.emissiveColor   = new Color3(0.18, 0.18, 0.18);
+    reMat.backFaceCulling = false;
+    rightEdge.material    = reMat;
+
+    // ── Green verges both sides ───────────────────────────────────────────
+    [
+      { path: pathL, name: 'vergeL', dir: -1 },
+      { path: pathR, name: 'vergeR', dir:  1 },
+    ].forEach(({ path, name, dir }) => {
+      const vIn  = [];
+      const vOut = [];
+      for (let i = 0; i < path.length; i++) {
+        const p    = path[i];
+        const perp = this._perp(i);
+        const ox   = p.x + perp.x * dir * 12;
+        const oz   = p.z + perp.z * dir * 12;
+        vIn.push(new Vector3(p.x, p.y - 0.01, p.z));
+        vOut.push(new Vector3(ox, 2.0, oz));
+      }
+      const verge = MeshBuilder.CreateRibbon(name, {
+        pathArray: [vIn, vOut],
+        closePath: false,
+        sideOrientation: 2,
+      }, this.scene);
+      const vm = new StandardMaterial(name+'Mat', this.scene);
+      vm.diffuseColor    = new Color3(0.12, 0.26, 0.07);
+      vm.specularColor   = new Color3(0.01, 0.02, 0.01);
+      vm.backFaceCulling = false;
+      verge.material     = vm;
+    });
+  }
+
   _buildRoundaboutMesh() {
     const { cx, cz, innerR, outerR, steps } = ROUNDABOUT;
     const y     = 2.12;
@@ -139,7 +255,6 @@ export class RoadSystem {
     rbMat.disableLighting = true;
     rb.material           = rbMat;
 
-    // White outer edge
     const eIn  = [];
     const eOut = [];
     for (let i = 0; i <= steps; i++) {
@@ -164,7 +279,6 @@ export class RoadSystem {
     eMat.backFaceCulling = false;
     edge.material        = eMat;
 
-    // Green centre island
     const island      = MeshBuilder.CreateDisc('arnosIsland', {
       radius: innerR - 8, tessellation: steps, sideOrientation: 2,
     }, this.scene);
@@ -176,7 +290,6 @@ export class RoadSystem {
     iMat.backFaceCulling = false;
     island.material      = iMat;
 
-    // Green verge outside
     const vIn  = [];
     const vOut = [];
     for (let i = 0; i <= steps; i++) {
@@ -231,7 +344,6 @@ export class RoadSystem {
     rbMat.disableLighting = true;
     rb.material           = rbMat;
 
-    // White outer edge
     const eIn  = [];
     const eOut = [];
     for (let i = 0; i <= steps; i++) {
@@ -256,7 +368,6 @@ export class RoadSystem {
     eMat.backFaceCulling = false;
     edge.material        = eMat;
 
-    // Green centre island
     const island      = MeshBuilder.CreateDisc('calderIsland', {
       radius: innerR - 8, tessellation: steps, sideOrientation: 2,
     }, this.scene);
@@ -268,7 +379,6 @@ export class RoadSystem {
     iMat.backFaceCulling = false;
     island.material      = iMat;
 
-    // Green verge outside
     const vIn  = [];
     const vOut = [];
     for (let i = 0; i <= steps; i++) {
@@ -291,99 +401,5 @@ export class RoadSystem {
     vMat.diffuseColor    = new Color3(0.12, 0.26, 0.07);
     vMat.backFaceCulling = false;
     verge.material       = vMat;
-  }
-
-  _buildRoadMesh() {
-    const half  = ROAD_WIDTH / 2;
-    const pathL = [];
-    const pathR = [];
-
-    for (let i = 0; i < this.points.length; i++) {
-      const p    = this.points[i];
-      const perp = this._perp(i);
-      const y    = p.y + 0.10;
-      pathL.push(new Vector3(p.x - perp.x*half, y, p.z - perp.z*half));
-      pathR.push(new Vector3(p.x + perp.x*half, y, p.z + perp.z*half));
-    }
-
-    const road    = MeshBuilder.CreateRibbon('road', {
-      pathArray: [pathL, pathR],
-      closePath: false,
-      sideOrientation: 2,
-    }, this.scene);
-    const roadMat = new StandardMaterial('roadMat', this.scene);
-    roadMat.diffuseColor    = new Color3(0.50, 0.50, 0.50);
-    roadMat.emissiveColor   = new Color3(0.42, 0.42, 0.42);
-    roadMat.specularColor   = new Color3(0.08, 0.08, 0.08);
-    roadMat.backFaceCulling = false;
-    roadMat.disableLighting = true;
-    road.material           = roadMat;
-
-    const cL = [], cR = [];
-    for (let i = 0; i < this.points.length; i++) {
-      const p    = this.points[i];
-      const perp = this._perp(i);
-      const y    = p.y + 0.22;
-      cL.push(new Vector3(p.x - perp.x*0.9, y, p.z - perp.z*0.9));
-      cR.push(new Vector3(p.x + perp.x*0.9, y, p.z + perp.z*0.9));
-    }
-    const centre = MeshBuilder.CreateRibbon('centre', {
-      pathArray: [cL, cR],
-      closePath: false,
-      sideOrientation: 2,
-    }, this.scene);
-    const cMat = new StandardMaterial('centreMat', this.scene);
-    cMat.diffuseColor    = new Color3(1.0, 0.85, 0.0);
-    cMat.emissiveColor   = new Color3(0.30, 0.24, 0.0);
-    cMat.backFaceCulling = false;
-    centre.material      = cMat;
-
-    [pathL, pathR].forEach((path, s) => {
-      const eL = [], eR = [];
-      for (let i = 0; i < path.length; i++) {
-        const p    = path[i];
-        const perp = this._perp(i);
-        const dir  = s === 0 ? -1 : 1;
-        const y    = p.y + 0.18;
-        eL.push(new Vector3(p.x + perp.x*dir*0.5, y, p.z + perp.z*dir*0.5));
-        eR.push(new Vector3(p.x - perp.x*dir*0.5, y, p.z - perp.z*dir*0.5));
-      }
-      const edge = MeshBuilder.CreateRibbon('edge'+s, {
-        pathArray: [eL, eR],
-        closePath: false,
-        sideOrientation: 2,
-      }, this.scene);
-      const em = new StandardMaterial('edgeMat'+s, this.scene);
-      em.diffuseColor    = new Color3(0.95, 0.95, 0.95);
-      em.emissiveColor   = new Color3(0.16, 0.16, 0.16);
-      em.backFaceCulling = false;
-      edge.material      = em;
-    });
-
-    [
-      { path: pathL, name: 'vergeL', dir: -1 },
-      { path: pathR, name: 'vergeR', dir:  1 },
-    ].forEach(({ path, name, dir }) => {
-      const vIn  = [];
-      const vOut = [];
-      for (let i = 0; i < path.length; i++) {
-        const p    = path[i];
-        const perp = this._perp(i);
-        const ox   = p.x + perp.x * dir * 8;
-        const oz   = p.z + perp.z * dir * 8;
-        vIn.push(new Vector3(p.x, p.y - 0.01, p.z));
-        vOut.push(new Vector3(ox, 2.0, oz));
-      }
-      const verge = MeshBuilder.CreateRibbon(name, {
-        pathArray: [vIn, vOut],
-        closePath: false,
-        sideOrientation: 2,
-      }, this.scene);
-      const vm = new StandardMaterial(name+'Mat', this.scene);
-      vm.diffuseColor    = new Color3(0.12, 0.26, 0.07);
-      vm.specularColor   = new Color3(0.01, 0.02, 0.01);
-      vm.backFaceCulling = false;
-      verge.material     = vm;
-    });
   }
 }
