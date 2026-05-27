@@ -3,6 +3,7 @@ import {
   MeshBuilder, StandardMaterial, Color3, Vector3,
   TransformNode, SceneLoader
 } from '@babylonjs/core';
+import { EngineSound } from '../audio/EngineSound.js';
 
 const CFG = {
   topSpeedKph: 95,
@@ -103,9 +104,9 @@ export class VanController {
   _buildProceduralVan() {
     const sc = this.scene;
     const root = this._bodyNode;
-    const bodyMat  = this._mat('body',   '#ECECE8', 0.25);
-    const glassMat = this._mat('glass',  '#1A2B3C', 0.60);
-    const chromeMat= this._mat('chrome', '#C0C0C0', 0.90);
+    const bodyMat   = this._mat('body',   '#ECECE8', 0.25);
+    const glassMat  = this._mat('glass',  '#1A2B3C', 0.60);
+    const chromeMat = this._mat('chrome', '#C0C0C0', 0.90);
     const mk = (n, w, h, d, x, y, z, mat) => {
       const b = MeshBuilder.CreateBox(n, { width: w, height: h, depth: d }, sc);
       b.material = mat;
@@ -170,36 +171,14 @@ export class VanController {
   setHandbrake(v) { this.input.handbrake = v ? 1 : 0; }
 
   _initAudio() {
-    try {
-      this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = this._audioCtx;
-      this._engineOsc  = ctx.createOscillator();
-      this._engineGain = ctx.createGain();
-      this._engineOsc.type = 'sawtooth';
-      this._engineOsc.frequency.value = 60;
-      this._engineOsc.connect(this._engineGain);
-      this._engineGain.connect(ctx.destination);
-      this._engineGain.gain.value = 0.04;
-      this._engineOsc.start();
-    } catch (e) { }
+    this._engineSound = new EngineSound('car');
+    document.addEventListener('touchstart', () => {
+      this._engineSound.start();
+    }, { once: true });
   }
 
   honk() {
-    try {
-      if (!this._audioCtx) return;
-      const ctx = this._audioCtx;
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(390, ctx.currentTime);
-      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.13);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.55);
-    } catch (e) { }
+    if (this._engineSound) this._engineSound.honk();
   }
 
   _buildInput() {
@@ -252,31 +231,20 @@ export class VanController {
 
     // ── Movement ───────────────────────────────────────────────────────────
     if (this.roadSystem) {
-      // Lateral drift from joystick/keys
       const latInput = steerR - steerL;
       this.lateral  += latInput * 18 * dt;
-// Hard road boundary — matches ROAD_BOUNDARY 24
-this.lateral   = Math.max(-22, Math.min(22, this.lateral));
-// Gentle centre return when no input
-if (latInput === 0)
-  this.lateral *= Math.pow(0.97, dt * 60);
-// Off-road flag
-this.offRoad = Math.abs(this.lateral) > 20;
-      // Off-road flag — clips roadside objects
-      this.offRoad = Math.abs(this.lateral) > 5.5;
+      this.lateral   = Math.max(-22, Math.min(22, this.lateral));
+      if (latInput === 0)
+        this.lateral *= Math.pow(0.97, dt * 60);
+      this.offRoad = Math.abs(this.lateral) > 20;
 
-      // Advance along spline
       const worldSpd = (this.speed / 3.6) * CFG.worldScale;
       this.roadDist += worldSpd * dt;
-// Infinite loop — wrap around when road completes full circuit
-if (this.roadDist >= this.roadSystem.totalLength) {
-  this.roadDist -= this.roadSystem.totalLength;
-}
-if (this.roadDist < 0) {
-  this.roadDist += this.roadSystem.totalLength;
-}
+      if (this.roadDist >= this.roadSystem.totalLength)
+        this.roadDist -= this.roadSystem.totalLength;
+      if (this.roadDist < 0)
+        this.roadDist += this.roadSystem.totalLength;
 
-      // Apply spline position + heading
       const { position, heading } =
         this.roadSystem.getCarTransform(this.roadDist, this.lateral);
       this.root.position.copyFrom(position);
@@ -284,7 +252,6 @@ if (this.roadDist < 0) {
       this.root.rotation.y = heading;
 
     } else {
-      // Fallback — free roam physics
       const steerInput = steerR - steerL;
       const steerBlend = Math.min(speedAbs / CFG.steerSpeedBlend, 1);
       const steerRate  = CFG.steerSpeedLow +
@@ -349,10 +316,8 @@ if (this.roadDist < 0) {
     });
 
     // ── Engine audio ───────────────────────────────────────────────────────
-    if (this._audioCtx && this._engineOsc) {
-      const freq = 45 + (this.engineRpm || 800) * 0.055;
-      this._engineOsc.frequency.setTargetAtTime(
-        freq, this._audioCtx.currentTime, 0.08);
+    if (this._engineSound) {
+      this._engineSound.setSpeed(Math.abs(this.speed));
     }
   }
 
