@@ -157,7 +157,7 @@ window._startCariVan = async function (vehicleType, missionType) {
       last = now;
 
       _van.update(delta);
-      if (_traffic) _traffic.update(delta);
+      if (_traffic) _traffic.update(delta, _van.roadDist, _van.lateral);
 
       if (window.updateHUD) {
         window.updateHUD(_van.getSpeed(), _van.getGear());
