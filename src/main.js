@@ -5,12 +5,13 @@ import {
   MeshBuilder, StandardMaterial
 } from '@babylonjs/core';
 
-import { buildTerrain }   from './terrain/TerrainMesh.js';
-import { buildOcean }     from './terrain/OceanPlane.js';
-import { VanController }  from './vehicles/VanController.js';
-import { RoadSystem }     from './road/RoadSystem.js';
+import { buildTerrain }    from './terrain/TerrainMesh.js';
+import { buildOcean }      from './terrain/OceanPlane.js';
+import { VanController }   from './vehicles/VanController.js';
+import { RoadSystem }      from './road/RoadSystem.js';
+import { TrafficSystem }   from './world/TrafficSystem.js';
 
-let _engine, _scene, _van, _camera;
+let _engine, _scene, _van, _camera, _traffic;
 let _paused = false;
 
 // ── Loading helpers ───────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     const canvas = document.getElementById('renderCanvas');
     if (!canvas) throw new Error('Canvas not found');
 
-    if (_scene) { _scene.dispose(); _scene = null; _van = null; }
+    if (_scene) { _scene.dispose(); _scene = null; _van = null; _traffic = null; }
 
     if (!_engine) {
       _engine = new Engine(canvas, true, {
@@ -79,14 +80,18 @@ window._startCariVan = async function (vehicleType, missionType) {
     setProgress(38, 'Filling the Caribbean Sea…');
     buildOcean(_scene);
 
-    // ── Road ─────────────────────────────────────────────────────────────────
+    // ── Road ──────────────────────────────────────────────────────────────────
     setProgress(52, 'Building island road…');
     const roadSystem = new RoadSystem(_scene, terrain);
+
+    // ── Traffic ───────────────────────────────────────────────────────────────
+    setProgress(62, 'Adding island traffic…');
+    _traffic = new TrafficSystem(_scene, roadSystem);
 
     // ── Van spawn — Kingstown ─────────────────────────────────────────────────
     setProgress(72, 'Spawning van…');
     const sx = 4600, sz = -9200;
-const sy = 25.5;
+    const sy = 25.5;
 
     _van = new VanController(
       _scene, terrain,
@@ -147,9 +152,12 @@ const sy = 25.5;
     let last = performance.now();
     _engine.runRenderLoop(() => {
       if (_paused) return;
-      const now = performance.now();
-      _van.update(now - last);
+      const now   = performance.now();
+      const delta = now - last;
       last = now;
+
+      _van.update(delta);
+      if (_traffic) _traffic.update(delta);
 
       if (window.updateHUD) {
         window.updateHUD(_van.getSpeed(), _van.getGear());
