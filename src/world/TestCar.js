@@ -9,10 +9,8 @@ export class TestCar {
   }
 
   _load() {
-    // Spawn stationary just to the right of player start
-    const spawnDist = roadSystem => roadSystem.totalLength * 0.02;
     const t = this.roadSystem.getCarTransform(
-      this.roadSystem.totalLength * 0.02, 60
+      this.roadSystem.totalLength * 0.001, 30
     );
 
     SceneLoader.ImportMesh(
@@ -20,10 +18,10 @@ export class TestCar {
       (meshes) => {
         if (!meshes.length) return;
         const root = meshes[0];
-        root.scaling   = new Vector3(10, 10, 10);
-        root.position  = t.position.clone();
+        root.scaling    = new Vector3(10, 10, 10);
+        root.position   = t.position.clone();
         root.position.y = 25.5;
-        root.rotation.y = t.heading + (110 * Math.PI / 180);
+        root.rotation.y = t.heading + Math.PI;
         console.log('[CariVan] FD2 loaded');
       },
       null,
