@@ -10,6 +10,7 @@ import { buildOcean }     from './terrain/OceanPlane.js';
 import { VanController }  from './vehicles/VanController.js';
 import { RoadSystem }     from './road/RoadSystem.js';
 import { RoadJogger }     from './world/RoadJogger.js';
+import { TestCar }        from './world/TestCar.js';
 
 let _engine, _scene, _van, _camera, _jogger;
 let _paused = false;
@@ -99,6 +100,10 @@ window._startCariVan = async function (vehicleType, missionType) {
       try { _jogger = new RoadJogger(_scene, roadSystem); }
       catch (e) { console.warn('Jogger failed:', e.message); }
     }, 3000);
+
+    // ── Test car (FD2) ────────────────────────────────────────────────────────
+    try { new TestCar(_scene, roadSystem); }
+    catch (e) { console.warn('TestCar failed:', e.message); }
 
     // ── Camera ────────────────────────────────────────────────────────────────
     setProgress(90, 'Setting up camera…');
