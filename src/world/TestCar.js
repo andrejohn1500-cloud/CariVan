@@ -9,15 +9,15 @@ export class TestCar {
   }
 
   _load() {
-    const spawnDist = this.roadSystem.findNearestDist(4600, -9200) + 400;
-    const t = this.roadSystem.getCarTransform(spawnDist, 45);
+    const spawnDist = this.roadSystem.findNearestDist(4600, -9200);
+    const t = this.roadSystem.getCarTransform(spawnDist, -30);
 
     SceneLoader.ImportMesh(
       '', './assets/', '2009_honda_civic_type_r_fd2_custom.glb', this.scene,
       (meshes) => {
         if (!meshes.length) return;
 
-        // Build our own root and parent EVERY mesh under it
+        // Build our own root and parent EVERY top-level mesh under it
         const holder = new TransformNode('fd2Holder', this.scene);
         meshes.forEach(m => {
           if (!m.parent) m.parent = holder;
