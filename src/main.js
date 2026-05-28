@@ -87,10 +87,11 @@ window._startCariVan = async function (vehicleType, missionType) {
     setProgress(80, 'Spawning vehicle…');
     const sx = 4600, sz = -9200, sy = 25.5;
 
-    _van = new VanController(
+    _van = new VehicleController(
       _scene, terrain,
       new Vector3(sx, sy, sz),
-      roadSystem
+      roadSystem,
+      SuzukiSwift
     );
     _van.roadDist = roadSystem.findNearestDist(sx, sz);
     window.gameVan = _van;
