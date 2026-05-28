@@ -2,8 +2,8 @@ import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader, TransformNode } from '@babylonjs/core';
 
 // FD2 tuning — adjust these two until it sits on the road
-const OFFSET_X = 77.5;   // + moves right, - moves left
-const OFFSET_Z = 50;   // + moves forward, - moves back
+const OFFSET_X = 60;   // + moves right, - moves left
+const OFFSET_Z = 40;   // + moves forward, - moves back
 
 export class TestCar {
   constructor(scene, roadSystem) {
