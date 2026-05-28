@@ -9,9 +9,8 @@ import { buildTerrain }   from './terrain/TerrainMesh.js';
 import { buildOcean }     from './terrain/OceanPlane.js';
 import { VanController }  from './vehicles/VanController.js';
 import { RoadSystem }     from './road/RoadSystem.js';
-import { PhoenixBird }    from './world/PhoenixBird.js';
 
-let _engine, _scene, _van, _camera, _phoenix;
+let _engine, _scene, _van, _camera;
 let _paused = false;
 
 function showLoading(missionType) {
@@ -44,7 +43,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     const canvas = document.getElementById('renderCanvas');
     if (!canvas) throw new Error('Canvas not found');
 
-    if (_scene) { _scene.dispose(); _scene = null; _van = null; _phoenix = null; }
+    if (_scene) { _scene.dispose(); _scene = null; _van = null; }
 
     if (!_engine) {
       _engine = new Engine(canvas, true, {
@@ -135,12 +134,6 @@ window._startCariVan = async function (vehicleType, missionType) {
       }
     });
 
-    // ── Phoenix bird (deferred 4s after game starts) ──────────────────────────
-    setTimeout(() => {
-      try { _phoenix = new PhoenixBird(_scene, roadSystem); }
-      catch (e) { console.warn('Phoenix failed:', e.message); }
-    }, 4000);
-
     // ── Game loop ─────────────────────────────────────────────────────────────
     let last = performance.now();
     _engine.runRenderLoop(() => {
@@ -150,7 +143,6 @@ window._startCariVan = async function (vehicleType, missionType) {
       last = now;
 
       _van.update(delta);
-      if (_phoenix) _phoenix.update(delta, _van.roadDist);
 
       if (window.updateHUD)
         window.updateHUD(_van.getSpeed(), _van.getGear());
