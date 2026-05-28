@@ -26,10 +26,10 @@ export class RoadJogger {
       (meshes) => {
         if (!meshes.length) return;
         this.root = meshes[0];
-        this.root.scaling = new Vector3(75, 75, 75);
+        this.root.scaling = new Vector3(30, 30, 30);
         const t = this.roadSystem.getCarTransform(this.roadDist, JOGGER_LATERAL);
         this.root.position   = t.position.clone();
-        this.root.rotation.y = t.heading + Math.PI;
+        this.root.rotation.y = t.heading;
 
         this._anims = this.scene.animationGroups.slice(animsBefore);
         console.log('[CariVan] Jogger anim count:', this._anims.length);
