@@ -39,8 +39,8 @@ export class TestCar {
         // Shift children so geometry center sits at holder origin
         meshes.forEach(m => {
           if (m.parent === holder) {
-            m.position.x -= center.x / 10;
-            m.position.z -= center.z / 10;
+            m.position.x -= center.x;
+            m.position.z -= center.z;
           }
         });
 
