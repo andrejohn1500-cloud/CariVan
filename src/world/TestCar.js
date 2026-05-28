@@ -9,17 +9,18 @@ export class TestCar {
   }
 
   _load() {
-    // Swift spawns at x=4600, z=-9200, y=25.5
-    // Place FD2 ahead in right lane at same y
+    const spawnDist = this.roadSystem.findNearestDist(4600, -9200);
+    const t = this.roadSystem.getCarTransform(spawnDist, 30);
+
     SceneLoader.ImportMesh(
       '', './assets/', '2009_honda_civic_type_r_fd2_custom.glb', this.scene,
       (meshes) => {
         if (!meshes.length) return;
         const root = meshes[0];
         root.scaling    = new Vector3(10, 10, 10);
-        root.position   = new Vector3(4630, 25.5, -9500);
-        root.rotation.y = Math.PI;
-        console.log('[CariVan] FD2 loaded');
+        root.position   = t.position.clone();
+        root.rotation.y = t.heading;
+        console.log('[CariVan] FD2 on road at:', t.position);
       },
       null,
       (s, msg) => console.warn('[CariVan] FD2 failed:', msg)
