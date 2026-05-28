@@ -20,10 +20,10 @@ export class TestCar {
       (meshes) => {
         if (!meshes.length) return;
         const root = meshes[0];
-        root.scaling   = new Vector3(1, 1, 1);
+        root.scaling   = new Vector3(10, 10, 10);
         root.position  = t.position.clone();
         root.position.y = 25.5;
-        root.rotation.y = t.heading;
+        root.rotation.y = t.heading + (110 * Math.PI / 180);
         console.log('[CariVan] FD2 loaded');
       },
       null,
