@@ -10,7 +10,7 @@ export class TestCar {
 
   _load() {
     const t = this.roadSystem.getCarTransform(
-      this.roadSystem.totalLength * 0.001, 30
+      this.roadSystem.totalLength * 0.001, -40
     );
 
     SceneLoader.ImportMesh(
@@ -21,7 +21,7 @@ export class TestCar {
         root.scaling    = new Vector3(10, 10, 10);
         root.position   = t.position.clone();
         root.position.y = 25.5;
-        root.rotation.y = t.heading + Math.PI;
+        root.rotation.y = t.heading + (Math.PI / 2);
         console.log('[CariVan] FD2 loaded');
       },
       null,
