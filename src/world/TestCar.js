@@ -1,6 +1,10 @@
 import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader, TransformNode } from '@babylonjs/core';
 
+// FD2 tuning — adjust these two until it sits on the road
+const OFFSET_X = 35;   // + moves right, - moves left
+const OFFSET_Z = 15;   // + moves forward, - moves back
+
 export class TestCar {
   constructor(scene, roadSystem) {
     this.scene      = scene;
@@ -22,32 +26,15 @@ export class TestCar {
           if (!m.parent) m.parent = holder;
         });
 
-        holder.scaling = new Vector3(10, 10, 10);
-
-        // Compute world bounding center of all meshes to find offset
-        let min = new Vector3(Infinity, Infinity, Infinity);
-        let max = new Vector3(-Infinity, -Infinity, -Infinity);
-        meshes.forEach(m => {
-          if (!m.getBoundingInfo) return;
-          m.computeWorldMatrix(true);
-          const bb = m.getBoundingInfo().boundingBox;
-          min = Vector3.Minimize(min, bb.minimumWorld);
-          max = Vector3.Maximize(max, bb.maximumWorld);
-        });
-        const center = min.add(max).scale(0.5);
-
-        // Shift children so geometry center sits at holder origin
-        meshes.forEach(m => {
-          if (m.parent === holder) {
-            m.position.x -= center.x / 3;
-            m.position.z -= center.z / 3;
-          }
-        });
-
-        holder.position   = t.position.clone();
+        holder.scaling    = new Vector3(10, 10, 10);
+        holder.position   = new Vector3(
+          t.position.x + OFFSET_X,
+          t.position.y,
+          t.position.z + OFFSET_Z
+        );
         holder.rotation.y = t.heading + Math.PI;
 
-        console.log('[CariVan] FD2 center offset:', center);
+        console.log('[CariVan] FD2 placed');
       },
       null,
       (s, msg) => console.warn('[CariVan] FD2 failed:', msg)
