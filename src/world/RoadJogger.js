@@ -26,7 +26,7 @@ export class RoadJogger {
       (meshes) => {
         if (!meshes.length) return;
         this.root = meshes[0];
-        this.root.scaling = new Vector3(30, 30, 30);
+        this.root.scaling = new Vector3(20, 20, 20);
         const t = this.roadSystem.getCarTransform(this.roadDist, JOGGER_LATERAL);
         this.root.position   = t.position.clone();
         this.root.rotation.y = t.heading;
