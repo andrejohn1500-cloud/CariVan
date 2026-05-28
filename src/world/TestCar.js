@@ -22,19 +22,32 @@ export class TestCar {
           if (!m.parent) m.parent = holder;
         });
 
-        // Counter the GLB's internal offset by centering child meshes
+        holder.scaling = new Vector3(10, 10, 10);
+
+        // Compute world bounding center of all meshes to find offset
+        let min = new Vector3(Infinity, Infinity, Infinity);
+        let max = new Vector3(-Infinity, -Infinity, -Infinity);
+        meshes.forEach(m => {
+          if (!m.getBoundingInfo) return;
+          m.computeWorldMatrix(true);
+          const bb = m.getBoundingInfo().boundingBox;
+          min = Vector3.Minimize(min, bb.minimumWorld);
+          max = Vector3.Maximize(max, bb.maximumWorld);
+        });
+        const center = min.add(max).scale(0.5);
+
+        // Shift children so geometry center sits at holder origin
         meshes.forEach(m => {
           if (m.parent === holder) {
-            m.position.x = 0;
-            m.position.z = 0;
+            m.position.x -= center.x / 10;
+            m.position.z -= center.z / 10;
           }
         });
 
-        holder.scaling    = new Vector3(10, 10, 10);
         holder.position   = t.position.clone();
         holder.rotation.y = t.heading + Math.PI;
 
-        console.log('[CariVan] FD2 holder at:', holder.position);
+        console.log('[CariVan] FD2 center offset:', center);
       },
       null,
       (s, msg) => console.warn('[CariVan] FD2 failed:', msg)
