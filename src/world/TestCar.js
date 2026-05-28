@@ -9,14 +9,15 @@ export class TestCar {
   }
 
   _load() {
+    // Swift spawns at x=4600, z=-9200, y=25.5
+    // Place FD2 ahead in right lane at same y
     SceneLoader.ImportMesh(
       '', './assets/', '2009_honda_civic_type_r_fd2_custom.glb', this.scene,
       (meshes) => {
         if (!meshes.length) return;
         const root = meshes[0];
         root.scaling    = new Vector3(10, 10, 10);
-        // Place directly on road — same x as player, ahead on z, road level y
-        root.position   = new Vector3(4600, 25.5, -9600);
+        root.position   = new Vector3(4630, 25.5, -9500);
         root.rotation.y = Math.PI;
         console.log('[CariVan] FD2 loaded');
       },
