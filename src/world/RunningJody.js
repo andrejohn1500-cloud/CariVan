@@ -23,11 +23,24 @@ export class RunningJody {
       (meshes) => {
         if (!meshes.length) return;
         this.root = meshes[0];
-        this.root.scaling = new Vector3(75, 75, 75);
+        this.root.scaling = new Vector3(45, 45, 45);
         const t = this.roadSystem.getCarTransform(this.roadDist, JODY_LATERAL);
         this.root.position   = t.position.clone();
-        this.root.rotation.y = t.heading;
+        this.root.rotation.y = t.heading + Math.PI;
         console.log('[CariVan] Jody loaded');
+
+        // Start running animation
+        const anims = this.scene.animationGroups;
+        if (anims && anims.length > 0) {
+          anims.forEach(ag => ag.stop());
+          const runAnim = anims.find(ag =>
+            ag.name.toLowerCase().includes('run') ||
+            ag.name.toLowerCase().includes('walk') ||
+            ag.name.toLowerCase().includes('jog')
+          ) || anims[0];
+          runAnim.start(true);
+          console.log('[CariVan] Jody animation:', runAnim.name);
+        }
       },
       null,
       (s, msg) => console.warn('[CariVan] Jody failed:', msg)
@@ -43,7 +56,7 @@ export class RunningJody {
 
     const t = this.roadSystem.getCarTransform(this.roadDist, JODY_LATERAL);
     this.root.position   = t.position.clone();
-    this.root.rotation.y = t.heading;
+    this.root.rotation.y = t.heading + Math.PI;
 
     const now       = performance.now();
     const distAlong = Math.abs(playerDist - this.roadDist);
@@ -85,7 +98,6 @@ export class RunningJody {
       utt.rate   = 1.1;
       utt.volume = 1.0;
 
-      // Pick a female voice if available
       const voices = window.speechSynthesis.getVoices();
       const female = voices.find(v =>
         v.name.toLowerCase().includes('female') ||
