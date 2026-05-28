@@ -14,6 +14,21 @@ export class RunningJody {
     this.root       = null;
     this.roadDist   = roadSystem.totalLength * 0.25;
     this._lastShout = 0;
+    this._speechReady = false;
+
+    // Unlock speech on first user touch
+    const unlock = () => {
+      const utt = new SpeechSynthesisUtterance('');
+      utt.volume = 0;
+      window.speechSynthesis.speak(utt);
+      this._speechReady = true;
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('pointerdown', unlock);
+      console.log('[CariVan] Speech unlocked');
+    };
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('pointerdown', unlock, { once: true });
+
     this._load();
   }
 
@@ -23,23 +38,20 @@ export class RunningJody {
       (meshes) => {
         if (!meshes.length) return;
         this.root = meshes[0];
-        this.root.scaling = new Vector3(45, 45, 45);
+        this.root.scaling = new Vector3(15, 15, 15);
         const t = this.roadSystem.getCarTransform(this.roadDist, JODY_LATERAL);
         this.root.position   = t.position.clone();
         this.root.rotation.y = t.heading + Math.PI;
         console.log('[CariVan] Jody loaded');
 
-        // Start running animation
+        // Log and play all animation groups
         const anims = this.scene.animationGroups;
-        if (anims && anims.length > 0) {
+        console.log('[CariVan] Anim count:', anims.length);
+        anims.forEach((ag, i) => console.log('[CariVan] Anim', i, ':', ag.name));
+        if (anims.length > 0) {
           anims.forEach(ag => ag.stop());
-          const runAnim = anims.find(ag =>
-            ag.name.toLowerCase().includes('run') ||
-            ag.name.toLowerCase().includes('walk') ||
-            ag.name.toLowerCase().includes('jog')
-          ) || anims[0];
-          runAnim.start(true);
-          console.log('[CariVan] Jody animation:', runAnim.name);
+          anims[0].start(true);
+          console.log('[CariVan] Playing:', anims[0].name);
         }
       },
       null,
@@ -89,7 +101,7 @@ export class RunningJody {
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // Speak with Web Speech API
+    // Speak
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utt  = new SpeechSynthesisUtterance(msg);
@@ -98,16 +110,25 @@ export class RunningJody {
       utt.rate   = 1.1;
       utt.volume = 1.0;
 
-      const voices = window.speechSynthesis.getVoices();
-      const female = voices.find(v =>
-        v.name.toLowerCase().includes('female') ||
-        v.name.toLowerCase().includes('woman') ||
-        v.name.toLowerCase().includes('zira') ||
-        v.name.toLowerCase().includes('samantha')
-      );
-      if (female) utt.voice = female;
+      // Wait for voices to load
+      const trySpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const female = voices.find(v =>
+          v.name.toLowerCase().includes('female') ||
+          v.name.toLowerCase().includes('woman') ||
+          v.name.toLowerCase().includes('zira') ||
+          v.name.toLowerCase().includes('samantha')
+        );
+        if (female) utt.voice = female;
+        window.speechSynthesis.speak(utt);
+        console.log('[CariVan] Speaking:', msg);
+      };
 
-      window.speechSynthesis.speak(utt);
+      if (window.speechSynthesis.getVoices().length > 0) {
+        trySpeak();
+      } else {
+        window.speechSynthesis.onvoiceschanged = trySpeak;
+      }
     }
 
     console.log('[CariVan] Jody shouts:', msg);
