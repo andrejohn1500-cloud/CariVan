@@ -1,10 +1,6 @@
 import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader, TransformNode } from '@babylonjs/core';
 
-// FD2 tuning — adjust these two until it sits on the road
-const OFFSET_X = -50;   // + moves right, - moves left
-const OFFSET_Z = -10;   // + moves forward, - moves back
-
 export class TestCar {
   constructor(scene, roadSystem) {
     this.scene      = scene;
@@ -27,14 +23,35 @@ export class TestCar {
         });
 
         holder.scaling    = new Vector3(10, 10, 10);
-        holder.position   = new Vector3(
-          t.position.x + OFFSET_X,
-          t.position.y,
-          t.position.z + OFFSET_Z
-        );
+        holder.position   = t.position.clone();
         holder.rotation.y = t.heading + Math.PI;
 
-        console.log('[CariVan] FD2 placed');
+        // Force everything to update before measuring
+        holder.computeWorldMatrix(true);
+        meshes.forEach(m => {
+          if (m.computeWorldMatrix) m.computeWorldMatrix(true);
+          if (m.refreshBoundingInfo) m.refreshBoundingInfo();
+        });
+
+        // Measure the actual visible center of the car
+        let min = new Vector3(Infinity, Infinity, Infinity);
+        let max = new Vector3(-Infinity, -Infinity, -Infinity);
+        meshes.forEach(m => {
+          if (!m.getBoundingInfo) return;
+          const bb = m.getBoundingInfo().boundingBox;
+          min = Vector3.Minimize(min, bb.minimumWorld);
+          max = Vector3.Maximize(max, bb.maximumWorld);
+        });
+        const center = min.add(max).scale(0.5);
+
+        // Shift the holder so the visible center lands exactly on the road target
+        const correction = t.position.subtract(center);
+        correction.y = 0;  // only shift horizontally, keep the y from getCarTransform
+        holder.position.addInPlace(correction);
+
+        console.log('[CariVan] FD2 visible center was at:', center);
+        console.log('[CariVan] Corrected by:', correction);
+        console.log('[CariVan] Final holder:', holder.position);
       },
       null,
       (s, msg) => console.warn('[CariVan] FD2 failed:', msg)
