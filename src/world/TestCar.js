@@ -33,11 +33,20 @@ export class TestCar {
           if (m.refreshBoundingInfo) m.refreshBoundingInfo();
         });
 
-        // Measure the actual visible center of the car
+        // Log every mesh so we can see what's in there
+        meshes.forEach((m, i) => {
+          console.log('[CariVan] FD2 mesh', i, ':', m.name,
+            'visible:', m.isVisible !== false,
+            'verts:', m.getTotalVertices ? m.getTotalVertices() : 'n/a');
+        });
+
+        // Measure only visible meshes that have actual geometry
         let min = new Vector3(Infinity, Infinity, Infinity);
         let max = new Vector3(-Infinity, -Infinity, -Infinity);
         meshes.forEach(m => {
           if (!m.getBoundingInfo) return;
+          if (m.isVisible === false) return;
+          if (m.getTotalVertices && m.getTotalVertices() === 0) return;
           const bb = m.getBoundingInfo().boundingBox;
           min = Vector3.Minimize(min, bb.minimumWorld);
           max = Vector3.Maximize(max, bb.maximumWorld);
