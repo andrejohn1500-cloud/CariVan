@@ -73,30 +73,11 @@ export class PhoenixBird {
 
     const ahead = this.roadSystem.getAtDist(playerDist + FLY_AHEAD);
     const pos   = ahead.pos;
-    const perp  = new Vector3(ahead.tang.z, 0, -ahead.tang.x);
     const y     = pos.y + FLY_HEIGHT;
 
-    // Right side → left side sweep
-    this._startPos = new Vector3(
-      pos.x + perp.x * (FLY_WIDTH / 2),
-      y,
-      pos.z + perp.z * (FLY_WIDTH / 2)
-    );
-    this._endPos = new Vector3(
-      pos.x - perp.x * (FLY_WIDTH / 2),
-      y,
-      pos.z - perp.z * (FLY_WIDTH / 2)
-    );
-
-    // Force midpoint of sweep to be exactly over road centre
-    const midX = (this._startPos.x + this._endPos.x) / 2;
-    const midZ = (this._startPos.z + this._endPos.z) / 2;
-    const offX = pos.x - midX;
-    const offZ = pos.z - midZ;
-    this._startPos.x += offX;
-    this._startPos.z += offZ;
-    this._endPos.x   += offX;
-    this._endPos.z   += offZ;
+    // Sweep along world X axis — always centred on road regardless of curve
+    this._startPos = new Vector3(pos.x + FLY_WIDTH / 2, y, pos.z);
+    this._endPos   = new Vector3(pos.x - FLY_WIDTH / 2, y, pos.z);
 
     this.root.rotation.y = ahead.heading + Math.PI / 2;
     this.root.position   = this._startPos.clone();
