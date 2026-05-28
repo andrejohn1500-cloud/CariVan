@@ -17,10 +17,17 @@ export class TestCar {
       (meshes) => {
         if (!meshes.length) return;
 
-        // Build our own root and parent EVERY top-level mesh under it
         const holder = new TransformNode('fd2Holder', this.scene);
         meshes.forEach(m => {
           if (!m.parent) m.parent = holder;
+        });
+
+        // Counter the GLB's internal offset by centering child meshes
+        meshes.forEach(m => {
+          if (m.parent === holder) {
+            m.position.x = 0;
+            m.position.z = 0;
+          }
         });
 
         holder.scaling    = new Vector3(10, 10, 10);
