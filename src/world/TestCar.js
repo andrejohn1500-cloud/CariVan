@@ -15,9 +15,10 @@ export class TestCar {
         if (!meshes.length) return;
         const root = meshes[0];
         root.scaling    = new Vector3(10, 10, 10);
-        root.position   = new Vector3(4650, 25.5, -9350);
-        root.rotation.y = 0;
-        console.log('[CariVan] FD2 loaded at hardcoded position');
+        // Place directly on road — same x as player, ahead on z, road level y
+        root.position   = new Vector3(4600, 25.5, -9600);
+        root.rotation.y = Math.PI;
+        console.log('[CariVan] FD2 loaded');
       },
       null,
       (s, msg) => console.warn('[CariVan] FD2 failed:', msg)
