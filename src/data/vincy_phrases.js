@@ -32,6 +32,3 @@ export function getRandomPhrase(category = null) {
               : VINCY_PHRASES;
                 return pool[Math.floor(Math.random() * pool.length)]?.text ?? "Wah gwaan!";
 }
-}
-]
-]
