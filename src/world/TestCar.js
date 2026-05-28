@@ -10,7 +10,7 @@ export class TestCar {
 
   _load() {
     const spawnDist = this.roadSystem.findNearestDist(4600, -9200);
-    const t = this.roadSystem.getCarTransform(spawnDist, 30);
+    const t = this.roadSystem.getCarTransform(spawnDist, 0);
 
     SceneLoader.ImportMesh(
       '', './assets/', '2009_honda_civic_type_r_fd2_custom.glb', this.scene,
