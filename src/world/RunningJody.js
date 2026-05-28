@@ -38,7 +38,7 @@ export class RunningJody {
       (meshes) => {
         if (!meshes.length) return;
         this.root = meshes[0];
-        this.root.scaling = new Vector3(15, 15, 15);
+        this.root.scaling = new Vector3(25, 25, 25);
         const t = this.roadSystem.getCarTransform(this.roadDist, JODY_LATERAL);
         this.root.position   = t.position.clone();
         this.root.rotation.y = t.heading + Math.PI;
