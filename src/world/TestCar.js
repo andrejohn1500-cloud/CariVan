@@ -44,10 +44,29 @@ export class TestCar {
         });
         const center = min.add(max).scale(0.5);
 
-        // Shift the holder so the visible center lands exactly on the road target
-        const correction = t.position.subtract(center);
-        correction.y = 0;  // only shift horizontally, keep the y from getCarTransform
+        // First correction pass
+        let correction = t.position.subtract(center);
+        correction.y = 0;
         holder.position.addInPlace(correction);
+
+        // Second pass — re-measure and correct any remaining drift
+        holder.computeWorldMatrix(true);
+        meshes.forEach(m => {
+          if (m.computeWorldMatrix) m.computeWorldMatrix(true);
+          if (m.refreshBoundingInfo) m.refreshBoundingInfo();
+        });
+        let min2 = new Vector3(Infinity, Infinity, Infinity);
+        let max2 = new Vector3(-Infinity, -Infinity, -Infinity);
+        meshes.forEach(m => {
+          if (!m.getBoundingInfo) return;
+          const bb = m.getBoundingInfo().boundingBox;
+          min2 = Vector3.Minimize(min2, bb.minimumWorld);
+          max2 = Vector3.Maximize(max2, bb.maximumWorld);
+        });
+        const center2 = min2.add(max2).scale(0.5);
+        const correction2 = t.position.subtract(center2);
+        correction2.y = 0;
+        holder.position.addInPlace(correction2);
 
         console.log('[CariVan] FD2 visible center was at:', center);
         console.log('[CariVan] Corrected by:', correction);
