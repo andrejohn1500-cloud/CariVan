@@ -17,10 +17,19 @@ export class TestCar {
       (meshes) => {
         if (!meshes.length) return;
         const root = meshes[0];
+
+        // Zero out any baked-in transform first
+        root.position = Vector3.Zero();
+        root.rotationQuaternion = null;
+        root.rotation = Vector3.Zero();
+
         root.scaling    = new Vector3(10, 10, 10);
-        root.position   = t.position.clone();
+        root.position.x = t.position.x;
+        root.position.y = t.position.y;
+        root.position.z = t.position.z;
         root.rotation.y = t.heading;
-        console.log('[CariVan] FD2 on road at:', t.position);
+
+        console.log('[CariVan] FD2 at:', root.position.x, root.position.y, root.position.z);
       },
       null,
       (s, msg) => console.warn('[CariVan] FD2 failed:', msg)
