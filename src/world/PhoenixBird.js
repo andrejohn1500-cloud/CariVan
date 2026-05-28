@@ -2,8 +2,8 @@ import '@babylonjs/loaders/glTF';
 import { Vector3, SceneLoader } from '@babylonjs/core';
 
 const FLY_AHEAD    = 8000;  // far enough ahead to see full sweep
-const FLY_HEIGHT   = 100;    // eye level, not overhead
-const FLY_WIDTH    = 200;   // wide sweep right to left
+const FLY_HEIGHT   = 80;    // eye level, not overhead
+const FLY_WIDTH    = 400;   // sweep width right to left
 const FLY_DURATION = 6000;  // ms to complete crossing
 const TRIGGER_FRAC = 0.25;  // fires at 1/4 of road loop
 
@@ -87,6 +87,16 @@ export class PhoenixBird {
       y,
       pos.z - perp.z * (FLY_WIDTH / 2)
     );
+
+    // Force midpoint of sweep to be exactly over road centre
+    const midX = (this._startPos.x + this._endPos.x) / 2;
+    const midZ = (this._startPos.z + this._endPos.z) / 2;
+    const offX = pos.x - midX;
+    const offZ = pos.z - midZ;
+    this._startPos.x += offX;
+    this._startPos.z += offZ;
+    this._endPos.x   += offX;
+    this._endPos.z   += offZ;
 
     this.root.rotation.y = ahead.heading + Math.PI / 2;
     this.root.position   = this._startPos.clone();
