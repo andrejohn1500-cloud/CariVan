@@ -9,8 +9,9 @@ import { buildTerrain }   from './terrain/TerrainMesh.js';
 import { buildOcean }     from './terrain/OceanPlane.js';
 import { VanController }  from './vehicles/VanController.js';
 import { RoadSystem }     from './road/RoadSystem.js';
+import { RunningJody }    from './world/RunningJody.js';
 
-let _engine, _scene, _van, _camera;
+let _engine, _scene, _van, _camera, _jody;
 let _paused = false;
 
 function showLoading(missionType) {
@@ -43,7 +44,7 @@ window._startCariVan = async function (vehicleType, missionType) {
     const canvas = document.getElementById('renderCanvas');
     if (!canvas) throw new Error('Canvas not found');
 
-    if (_scene) { _scene.dispose(); _scene = null; _van = null; }
+    if (_scene) { _scene.dispose(); _scene = null; _van = null; _jody = null; }
 
     if (!_engine) {
       _engine = new Engine(canvas, true, {
@@ -92,6 +93,12 @@ window._startCariVan = async function (vehicleType, missionType) {
     );
     _van.roadDist = roadSystem.findNearestDist(sx, sz);
     window.gameVan = _van;
+
+    // ── Jody (deferred 3s after game starts) ─────────────────────────────────
+    setTimeout(() => {
+      try { _jody = new RunningJody(_scene, roadSystem); }
+      catch (e) { console.warn('Jody failed:', e.message); }
+    }, 3000);
 
     // ── Camera ────────────────────────────────────────────────────────────────
     setProgress(90, 'Setting up camera…');
@@ -143,6 +150,12 @@ window._startCariVan = async function (vehicleType, missionType) {
       last = now;
 
       _van.update(delta);
+      if (_jody) _jody.update(
+        delta,
+        _van.roadDist,
+        _van.lateral ?? 0,
+        _van.getSpeed()
+      );
 
       if (window.updateHUD)
         window.updateHUD(_van.getSpeed(), _van.getGear());
