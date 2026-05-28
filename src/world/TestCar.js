@@ -10,7 +10,7 @@ export class TestCar {
 
   _load() {
     const spawnDist = this.roadSystem.findNearestDist(4600, -9200) + 400;
-    const t = this.roadSystem.getCarTransform(spawnDist, 30);
+    const t = this.roadSystem.getCarTransform(spawnDist, 45);
 
     SceneLoader.ImportMesh(
       '', './assets/', '2009_honda_civic_type_r_fd2_custom.glb', this.scene,
@@ -25,7 +25,7 @@ export class TestCar {
 
         holder.scaling    = new Vector3(10, 10, 10);
         holder.position   = t.position.clone();
-        holder.rotation.y = t.heading;
+        holder.rotation.y = t.heading + Math.PI;
 
         console.log('[CariVan] FD2 holder at:', holder.position);
       },
