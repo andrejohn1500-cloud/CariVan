@@ -8,7 +8,7 @@ import {
 import { buildTerrain }   from './terrain/TerrainMesh.js';
 import { buildOcean }     from './terrain/OceanPlane.js';
 import { VehicleController } from './vehicles/VehicleController.js';
-import { SuzukiSwift }       from './vehicles/profiles/SuzukiSwift.js';
+import { getProfile }        from './vehicles/VehicleRegistry.js';
 import { RoadSystem }     from './road/RoadSystem.js';
 import { RoadJogger }     from './world/RoadJogger.js';
 
