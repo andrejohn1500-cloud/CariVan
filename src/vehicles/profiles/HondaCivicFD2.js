@@ -4,9 +4,9 @@ export const HondaCivicFD2 = {
   glb:  '2009_honda_civic_type_r_fd2_custom.glb',
 
   // Visual
-  scale:    1,
-  bodyRotX: Math.PI,
-  bodyRotY: Math.PI,
+  scale:    0.04,
+  bodyRotX: 0,
+  bodyRotY: 0,
   bodyRotZ: 0,
   suspensionHeight: 0.52,
 
