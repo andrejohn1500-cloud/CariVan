@@ -4,11 +4,11 @@ export const HondaFitHybrid = {
   glb:  '2020_honda_fit_hybrid_6aa-gr3.glb',
 
   // Visual
-  scale:    50,
+  scale:    30,
   bodyRotX: 0,
   bodyRotY: Math.PI,
   bodyRotZ: 0,
-  suspensionHeight: 0.52,
+  suspensionHeight: 0.05,
 
   // Performance — economy hybrid
   topSpeedKph:     150,
