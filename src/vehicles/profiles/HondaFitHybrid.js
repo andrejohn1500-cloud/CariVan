@@ -4,8 +4,8 @@ export const HondaFitHybrid = {
   glb:  '2020_honda_fit_hybrid_6aa-gr3.glb',
 
   // Visual
-  scale:    1,
-  bodyRotX: Math.PI,
+  scale:    50,
+  bodyRotX: 0,
   bodyRotY: Math.PI,
   bodyRotZ: 0,
   suspensionHeight: 0.52,
